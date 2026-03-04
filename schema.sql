@@ -1,20 +1,15 @@
-CREATE DATABASE hospital_db;
+CREATE DATABASE IF NOT EXISTS hospital_db;
 USE hospital_db;
 
-CREATE TABLE patients (
-    patient_id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL,
-    age INT,
+CREATE TABLE IF NOT EXISTS patients (
+    patient_id INT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
     gender VARCHAR(10),
-    phone VARCHAR(15) UNIQUE,
-    address TEXT
-);
-
-CREATE TABLE visits (
-    visit_id INT PRIMARY KEY AUTO_INCREMENT,
-    patient_id INT,
-    doctor_name VARCHAR(100),
-    symptoms TEXT,
-    visit_date DATE,
-    FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+    date_of_birth DATE,
+    phone_number VARCHAR(15) UNIQUE,
+    email VARCHAR(100) UNIQUE,
+    address VARCHAR(255),
+    blood_group VARCHAR(5),
+    registration_date DATE
 );
