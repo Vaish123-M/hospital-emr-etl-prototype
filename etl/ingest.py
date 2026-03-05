@@ -42,6 +42,11 @@ def main() -> None:
         # Load patient source data from Excel.
         df = pd.read_excel(EXCEL_PATH)
 
+        # Clean and normalize column names.
+        df.columns = (
+            df.columns.str.strip().str.lower().str.replace(" ", "_", regex=False)
+        )
+
         required_columns = [
             "patient_id",
             "first_name",
@@ -61,10 +66,10 @@ def main() -> None:
 
         # Convert DD-MM-YYYY to YYYY-MM-DD for MySQL DATE fields.
         df["date_of_birth"] = pd.to_datetime(
-            df["date_of_birth"], format="%d-%m-%Y", errors="raise"
+            df["date_of_birth"], dayfirst=True, errors="raise"
         ).dt.strftime("%Y-%m-%d")
         df["registration_date"] = pd.to_datetime(
-            df["registration_date"], format="%d-%m-%Y", errors="raise"
+            df["registration_date"], dayfirst=True, errors="raise"
         ).dt.strftime("%Y-%m-%d")
 
         insert_query = """
