@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+	body {
+		@apply bg-sky-50 text-slate-800 antialiased;
+	}
+}
+
+@layer utilities {
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	@keyframes slideUp {
+		from {
+			opacity: 0;
+			transform: translateY(24px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.animate-fade-in {
+		animation: fadeIn 700ms ease-out both;
+	}
+
+	.animate-slide-up {
+		animation: slideUp 700ms ease-out both;
+	}
+
+	.animation-delay-200 {
+		animation-delay: 200ms;
+	}
+}

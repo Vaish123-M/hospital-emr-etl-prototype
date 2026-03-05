@@ -1,0 +1,35 @@
+import { Link } from "react-router-dom";
+
+export default function Hero() {
+  return (
+    <section id="home" className="mx-auto grid max-w-6xl gap-10 px-6 py-16 md:grid-cols-2 md:items-center">
+      <div className="animate-fade-in">
+        <h1 className="mb-5 text-4xl font-bold leading-tight text-slate-800 md:text-5xl">
+          Modern Patient Management for Small Hospitals
+        </h1>
+        <p className="mb-4 text-lg text-slate-600">
+          Many small hospitals still manage patient records in Excel which causes duplication,
+          lack of structure, and poor scalability.
+        </p>
+        <p className="mb-8 text-slate-600">
+          Our system replaces Excel with a structured database-driven patient management
+          platform.
+        </p>
+        <Link
+          to="/dashboard"
+          className="inline-flex rounded-xl bg-sky-600 px-5 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:bg-sky-700"
+        >
+          Launch System
+        </Link>
+      </div>
+
+      <div className="animate-slide-up rounded-2xl border border-sky-100 bg-white p-8 shadow-lg">
+        <div className="mb-4 text-5xl">🩺</div>
+        <h3 className="mb-2 text-xl font-semibold text-slate-800">Healthcare First</h3>
+        <p className="text-slate-600">
+          Secure, organized, and scalable patient management for modern clinical workflows.
+        </p>
+      </div>
+    </section>
+  );
+}
