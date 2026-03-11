@@ -6,12 +6,116 @@ Architecture:
 
 Excel Data -> Python ETL Pipeline -> MySQL Database -> FastAPI Backend -> React + Tailwind Frontend
 
+## Solution Objective
+
+This system is designed to help small hospitals and medical camps move away from spreadsheet-based EMR management and adopt a structured, scalable workflow.
+
+Primary goals:
+
+- Migrate legacy EMR records from Excel to a relational database
+- Improve data quality through profiling, cleaning, and validation
+- Prevent duplicate records through unique constraints and ETL deduplication
+- Make patient and visit history retrieval easier through APIs and dashboard UI
+- Provide a beginner-friendly prototype that can be extended into production
+
 Core ETL modules now include:
 
 - Data profiling and quality reporting
 - Data mapping documentation
 - Modular cleaning and validation
 - Automated pipeline runner with logging
+
+## Features
+
+### Data Collection and Profiling
+
+- Reads EMR data from Excel files
+- Profiles missing values by column
+- Detects duplicate phone numbers and emails
+- Flags invalid date values and inconsistent gender formats
+- Generates markdown quality report for audit and review
+
+### Data Cleaning and Validation
+
+- Standardizes column names and known aliases
+- Normalizes patient names, gender values, blood group, and contact fields
+- Converts date fields into database-compatible ISO format
+- Handles null and placeholder values safely
+- Removes duplicate patient rows before insertion
+
+### Database Design and Integrity
+
+- Creates normalized MySQL schema with patients and visits tables
+- Uses foreign key relationship from visits to patients
+- Enforces unique phone and email constraints for patients
+- Adds visit indexes for better query performance
+
+### ETL and Automation
+
+- Supports stepwise ETL execution and one-command automation
+- Generates data quality report before loading data
+- Loads cleaned patient data into MySQL
+- Optionally ingests visit records from a visits sheet
+- Writes structured ETL logs for troubleshooting
+
+### Backend API (FastAPI)
+
+- Patient registration endpoint
+- Patient list endpoint
+- Patient detail endpoint
+- Visit creation endpoint
+- Visit history endpoint by patient
+- Consistent JSON responses and validation using Pydantic models
+
+### Frontend Web Interface (React + Tailwind)
+
+- Landing page with problem, objective, and solution context
+- Dashboard with patient registration form
+- Patient list table with quick details
+- Patient detail panel
+- Add visit form and visit history table
+
+## Technologies Used
+
+### Languages
+
+- Python
+- SQL
+- JavaScript
+
+### Data and ETL
+
+- Excel (.xlsx)
+- pandas
+- openpyxl
+- mysql-connector-python
+
+### Backend
+
+- FastAPI
+- Uvicorn
+- Pydantic
+
+### Database
+
+- MySQL / MariaDB
+
+### Frontend
+
+- React (Vite)
+- Tailwind CSS
+- Axios
+- React Router
+
+### Tooling and Ops
+
+- Docker Compose (optional MySQL runtime)
+- PowerShell helper scripts
+- Git + GitHub
+
+### ETL Automation Reference
+
+- Airbyte can be used as a future enhancement for scheduled and connector-based ingestion, but this prototype currently implements a custom Python ETL pipeline.
 
 ## Problem Statement
 
