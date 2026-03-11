@@ -9,7 +9,6 @@ from .models import (
     INSERT_PATIENT,
     PATIENT_COLUMNS,
     SELECT_ALL_PATIENTS,
-    SELECT_NEXT_PATIENT_ID,
     SELECT_PATIENT_BY_ID,
 )
 from .schemas import PatientCreate, PatientResponse
@@ -45,6 +44,14 @@ def get_patients():
         rows = cursor.fetchall()
         return [row_to_patient_dict(row) for row in rows]
     except Error as exc:
+        if getattr(exc, "errno", None) == 2003:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "MySQL is not reachable at localhost:3306. "
+                    "Start MySQL service and verify DB_* environment variables."
+                ),
+            )
         raise HTTPException(status_code=500, detail=f"Database error: {exc}")
     finally:
         if cursor is not None:
@@ -66,6 +73,14 @@ def get_patient_by_id(patient_id: int):
             raise HTTPException(status_code=404, detail="Patient not found")
         return row_to_patient_dict(row)
     except Error as exc:
+        if getattr(exc, "errno", None) == 2003:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "MySQL is not reachable at localhost:3306. "
+                    "Start MySQL service and verify DB_* environment variables."
+                ),
+            )
         raise HTTPException(status_code=500, detail=f"Database error: {exc}")
     finally:
         if cursor is not None:
@@ -82,12 +97,8 @@ def create_patient(patient: PatientCreate):
         connection = get_connection()
         cursor = connection.cursor()
 
-        cursor.execute(SELECT_NEXT_PATIENT_ID)
-        next_id = cursor.fetchone()[0]
-
         registration_date = date.today()
         payload = (
-            next_id,
             patient.first_name,
             patient.last_name,
             patient.gender,
@@ -100,23 +111,25 @@ def create_patient(patient: PatientCreate):
         )
 
         cursor.execute(INSERT_PATIENT, payload)
+        new_patient_id = cursor.lastrowid
         connection.commit()
 
-        return {
-            "patient_id": next_id,
-            "first_name": patient.first_name,
-            "last_name": patient.last_name,
-            "gender": patient.gender,
-            "date_of_birth": patient.date_of_birth,
-            "phone_number": patient.phone_number,
-            "email": patient.email,
-            "address": patient.address,
-            "blood_group": patient.blood_group,
-            "registration_date": registration_date,
-        }
+        cursor.execute(SELECT_PATIENT_BY_ID, (new_patient_id,))
+        row = cursor.fetchone()
+        if row is None:
+            raise HTTPException(status_code=500, detail="Failed to fetch created patient")
+        return row_to_patient_dict(row)
     except Error as exc:
         if connection is not None:
             connection.rollback()
+        if getattr(exc, "errno", None) == 2003:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "MySQL is not reachable at localhost:3306. "
+                    "Start MySQL service and verify DB_* environment variables."
+                ),
+            )
         if getattr(exc, "errno", None) == 1062:
             raise HTTPException(
                 status_code=409,

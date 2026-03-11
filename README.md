@@ -1,17 +1,37 @@
 # Hospital Patient Management System (Prototype)
 
-Minimal full-stack prototype:
+A beginner-friendly full-stack prototype that replaces Excel-based patient storage with a structured relational system.
 
-Excel → Python ETL → MySQL → FastAPI → React + Tailwind
+Architecture:
 
-## Project structure
+Excel Data -> Python ETL Pipeline -> MySQL Database -> FastAPI Backend -> React + Tailwind Frontend
+
+## Problem Statement
+
+Small hospitals often store patient records in Excel files. This causes:
+
+- Duplicate entries
+- Unstructured storage
+- Difficulty retrieving patient details
+- Poor scalability as data grows
+
+## Objective
+
+Build a simple local system to:
+
+- Import old patient records from Excel
+- Store records in MySQL (`hospital_db`)
+- Register new patients from a web form
+- View patient list and individual patient details
+
+## Project Structure
 
 ```
 hospital-emr-etl-prototype/
 ├── backend/
 │   ├── __init__.py
-│   ├── main.py
 │   ├── database.py
+│   ├── main.py
 │   ├── models.py
 │   └── schemas.py
 ├── etl/
@@ -19,15 +39,10 @@ hospital-emr-etl-prototype/
 │   └── ingest.py
 ├── frontend/
 │   ├── package.json
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── tailwind.config.js
 │   ├── postcss.config.js
+│   ├── tailwind.config.js
+│   ├── vite.config.js
 │   └── src/
-│       ├── App.jsx
-│       ├── PatientDashboard.jsx
-│       ├── main.jsx
-│       └── index.css
 ├── sample_data/
 │   └── patients.xlsx
 ├── schema.sql
@@ -35,26 +50,62 @@ hospital-emr-etl-prototype/
 └── README.md
 ```
 
-## 1) Database setup
+## 1) Database Setup
 
-1. Start MySQL server.
-2. Run `schema.sql` in MySQL client/workbench.
+1. Start your MySQL server.
+2. Run `schema.sql`.
 
 This creates:
+
 - Database: `hospital_db`
 - Table: `patients`
 
-## 2) Python dependencies
+Key constraints:
 
-Install backend + ETL dependencies:
+- `patient_id` primary key (auto increment)
+- `first_name`, `last_name`, `phone_number`, `registration_date` are NOT NULL
+- `phone_number` UNIQUE
+- `email` UNIQUE
+
+### Option A: Local MySQL Service
+
+Use your locally installed MySQL server and run `schema.sql` manually.
+
+### Option B: Docker MySQL (No local MySQL install)
+
+If Docker Desktop is installed, start MySQL with:
+
+```bash
+docker compose up -d
+```
+
+This project includes `docker-compose.yml` that:
+
+- Starts MySQL 8.4 on port `3306`
+- Creates database `hospital_db`
+- Runs `schema.sql` automatically on first container start
+
+To stop:
+
+```bash
+docker compose down
+```
+
+To stop and remove data volume:
+
+```bash
+docker compose down -v
+```
+
+## 2) Install Python Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 3) Environment variables (optional)
+## 3) Configure Database Connection
 
-Defaults are used if these are not set:
+Set environment variables (optional, defaults are provided):
 
 - `DB_HOST` (default: `localhost`)
 - `DB_PORT` (default: `3306`)
@@ -62,32 +113,55 @@ Defaults are used if these are not set:
 - `DB_USER` (default: `root`)
 - `DB_PASSWORD` (default: empty)
 
-## 4) Import Excel data (ETL)
+## 4) Run ETL to Import Excel Data
 
 ```bash
 python etl/ingest.py
 ```
 
-ETL behavior:
-- Reads `sample_data/patients.xlsx`
-- Cleans column names
-- Converts date format to MySQL-compatible `YYYY-MM-DD`
-- Inserts into MySQL
-- Ignores duplicates through `INSERT IGNORE` + unique phone/email
-- Prints inserted record count
+If using Docker MySQL, you can run with preconfigured environment variables:
 
-## 5) Run FastAPI backend
+```powershell
+powershell -ExecutionPolicy Bypass -File etl/run_etl_with_docker_db.ps1
+```
+
+What ETL does:
+
+- Reads `sample_data/patients.xlsx`
+- Cleans column names (lowercase + underscore style)
+- Converts dates from `DD-MM-YYYY` to `YYYY-MM-DD`
+- Inserts rows into MySQL
+- Avoids duplicates using `INSERT IGNORE` with unique `phone_number`/`email`
+
+Optional data quality check:
+
+```bash
+python etl/check_db.py
+```
+
+## 5) Run FastAPI Backend
 
 ```bash
 uvicorn backend.main:app --reload
 ```
 
-API endpoints:
-- `GET /patients`
-- `GET /patients/{id}`
-- `POST /patients`
+If using Docker MySQL, you can run with preconfigured environment variables:
 
-## 6) Run React frontend
+```powershell
+powershell -ExecutionPolicy Bypass -File backend/run_backend_with_docker_db.ps1
+```
+
+APIs:
+
+- `POST /patients` -> register a new patient
+- `GET /patients` -> list all patients
+- `GET /patients/{id}` -> get one patient
+
+Docs:
+
+- Swagger UI: `http://localhost:8000/docs`
+
+## 6) Run Frontend (React + Tailwind)
 
 ```bash
 cd frontend
@@ -95,7 +169,20 @@ npm install
 npm run dev
 ```
 
-Frontend uses:
-- `GET http://localhost:8000/patients`
-- `POST http://localhost:8000/patients`
+Default frontend URL: `http://localhost:5173`
+
+Optional frontend environment variable:
+
+- `VITE_API_BASE_URL` (default: `http://localhost:8000`)
+
+## Application Flow Demonstration
+
+1. Import old Excel records with ETL (`python etl/ingest.py`).
+2. Start FastAPI backend (`uvicorn backend.main:app --reload`).
+3. Start frontend (`npm run dev` in `frontend/`).
+4. Open dashboard and register a new patient using the form.
+5. View all patients in the table.
+6. Click `View` on a row to fetch and display full patient details.
+
+This completes the end-to-end flow from Excel ingestion to patient management UI.
 

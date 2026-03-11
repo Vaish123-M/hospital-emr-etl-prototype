@@ -14,15 +14,21 @@ export default function Hero() {
           Many small hospitals still manage patient records in Excel which causes duplication,
           lack of structure, and poor scalability.
         </p>
-        <p className="mb-8 text-slate-600">
-          Our system replaces Excel with a structured database-driven patient management
-          platform.
-        </p>
+        <div className="mb-8 grid gap-3 text-sm text-slate-700">
+          <div className="rounded-xl border border-sky-100 bg-white/90 p-3 shadow-sm">
+            <p className="font-semibold text-slate-800">Objective</p>
+            <p>Replace spreadsheet-based records with a structured, searchable system.</p>
+          </div>
+          <div className="rounded-xl border border-sky-100 bg-white/90 p-3 shadow-sm">
+            <p className="font-semibold text-slate-800">Solution</p>
+            <p>Excel ETL pipeline + MySQL + FastAPI + React dashboard for registration and retrieval.</p>
+          </div>
+        </div>
         <Link
           to="/dashboard"
           className="inline-flex rounded-xl bg-sky-600 px-5 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:bg-sky-700"
         >
-          Launch System
+          Open System Dashboard
         </Link>
       </div>
 

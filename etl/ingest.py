@@ -20,8 +20,8 @@ def get_db_config() -> dict:
         "host": os.getenv("DB_HOST", "localhost"),
         "port": int(db_port),
         "database": os.getenv("DB_NAME", "hospital_db"),
-        "user": os.getenv("DB_USER", "your_username"),
-        "password": os.getenv("DB_PASSWORD", "your_password"),
+        "user": os.getenv("DB_USER", "root"),
+        "password": os.getenv("DB_PASSWORD", ""),
     }
 
 
@@ -48,12 +48,15 @@ def main() -> None:
         )
 
         required_columns = [
-            "patient_id",
             "first_name",
             "last_name",
-            "gender",
-            "date_of_birth",
             "phone_number",
+            "date_of_birth",
+        ]
+
+        optional_columns = [
+            "patient_id",
+            "gender",
             "email",
             "address",
             "blood_group",
@@ -64,15 +67,28 @@ def main() -> None:
         if missing_columns:
             raise ValueError(f"Missing required columns in Excel file: {missing_columns}")
 
+        for column in optional_columns:
+            if column not in df.columns:
+                df[column] = None
+
         # Convert DD-MM-YYYY to YYYY-MM-DD for MySQL DATE fields.
         df["date_of_birth"] = pd.to_datetime(
             df["date_of_birth"], dayfirst=True, errors="raise"
         ).dt.strftime("%Y-%m-%d")
         df["registration_date"] = pd.to_datetime(
-            df["registration_date"], dayfirst=True, errors="raise"
+            df["registration_date"], dayfirst=True, errors="coerce"
         ).dt.strftime("%Y-%m-%d")
 
-        insert_query = """
+        # Fill invalid/empty registration_date with today's date so inserts remain valid.
+        today_iso = pd.Timestamp.today().strftime("%Y-%m-%d")
+        df["registration_date"] = df["registration_date"].fillna(today_iso)
+
+        # Replace NaN values with None so mysql-connector sends proper SQL NULL values.
+        df = df.where(pd.notnull(df), None)
+
+        has_patient_id = "patient_id" in df.columns and df["patient_id"].notna().any()
+
+        insert_query_with_id = """
             INSERT IGNORE INTO patients (
                 patient_id,
                 first_name,
@@ -88,9 +104,52 @@ def main() -> None:
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
 
+        insert_query_without_id = """
+            INSERT IGNORE INTO patients (
+                first_name,
+                last_name,
+                gender,
+                date_of_birth,
+                phone_number,
+                email,
+                address,
+                blood_group,
+                registration_date
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
         records_inserted = 0
-        for row in df[required_columns].itertuples(index=False, name=None):
-            cursor.execute(insert_query, row)
+        if has_patient_id:
+            ordered_columns = [
+                "patient_id",
+                "first_name",
+                "last_name",
+                "gender",
+                "date_of_birth",
+                "phone_number",
+                "email",
+                "address",
+                "blood_group",
+                "registration_date",
+            ]
+            query = insert_query_with_id
+        else:
+            ordered_columns = [
+                "first_name",
+                "last_name",
+                "gender",
+                "date_of_birth",
+                "phone_number",
+                "email",
+                "address",
+                "blood_group",
+                "registration_date",
+            ]
+            query = insert_query_without_id
+
+        for row in df[ordered_columns].itertuples(index=False, name=None):
+            cursor.execute(query, row)
             records_inserted += cursor.rowcount
 
         connection.commit()

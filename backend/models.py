@@ -45,13 +45,8 @@ FROM patients
 WHERE patient_id = %s;
 """
 
-
-SELECT_NEXT_PATIENT_ID = "SELECT COALESCE(MAX(patient_id), 0) + 1 AS next_id FROM patients;"
-
-
 INSERT_PATIENT = """
 INSERT INTO patients (
-    patient_id,
     first_name,
     last_name,
     gender,
@@ -62,5 +57,5 @@ INSERT INTO patients (
     blood_group,
     registration_date
 )
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
 """

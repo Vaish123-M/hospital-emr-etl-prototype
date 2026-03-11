@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import PatientForm from "./PatientForm";
 import PatientTable from "./PatientTable";
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 const initialForm = {
   first_name: "",
@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState(null);
 
   async function fetchPatients() {
     setLoading(true);
@@ -39,6 +40,16 @@ export default function Dashboard() {
   useEffect(() => {
     fetchPatients();
   }, []);
+
+  async function handleViewPatientDetails(patientId) {
+    setError("");
+    try {
+      const response = await axios.get(`${API_BASE_URL}/patients/${patientId}`);
+      setSelectedPatient(response.data);
+    } catch {
+      setError("Could not fetch patient details.");
+    }
+  }
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -61,6 +72,7 @@ export default function Dashboard() {
         blood_group: formData.blood_group || null,
       });
       setFormData(initialForm);
+      setSelectedPatient(null);
       await fetchPatients();
     } catch (submitError) {
       const detail = submitError?.response?.data?.detail;
@@ -94,7 +106,28 @@ export default function Dashboard() {
           />
         </div>
 
-        <PatientTable patients={patients} loading={loading} />
+        {selectedPatient && (
+          <section className="mb-8 rounded-xl border border-sky-100 bg-white p-5 shadow-lg">
+            <h2 className="mb-3 text-xl font-semibold text-slate-800">Patient Details</h2>
+            <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+              <p><span className="font-semibold">Patient ID:</span> {selectedPatient.patient_id}</p>
+              <p><span className="font-semibold">Name:</span> {selectedPatient.first_name} {selectedPatient.last_name}</p>
+              <p><span className="font-semibold">Gender:</span> {selectedPatient.gender || "-"}</p>
+              <p><span className="font-semibold">Date of Birth:</span> {selectedPatient.date_of_birth || "-"}</p>
+              <p><span className="font-semibold">Phone:</span> {selectedPatient.phone_number || "-"}</p>
+              <p><span className="font-semibold">Email:</span> {selectedPatient.email || "-"}</p>
+              <p className="md:col-span-2"><span className="font-semibold">Address:</span> {selectedPatient.address || "-"}</p>
+              <p><span className="font-semibold">Blood Group:</span> {selectedPatient.blood_group || "-"}</p>
+              <p><span className="font-semibold">Registration Date:</span> {selectedPatient.registration_date || "-"}</p>
+            </div>
+          </section>
+        )}
+
+        <PatientTable
+          patients={patients}
+          loading={loading}
+          onViewDetails={handleViewPatientDetails}
+        />
       </div>
     </div>
   );

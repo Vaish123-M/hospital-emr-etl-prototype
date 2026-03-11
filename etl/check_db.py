@@ -15,8 +15,8 @@ def get_db_config() -> dict:
         "host": os.getenv("DB_HOST", "localhost"),
         "port": int(db_port),
         "database": os.getenv("DB_NAME", "hospital_db"),
-        "user": os.getenv("DB_USER", "your_username"),
-        "password": os.getenv("DB_PASSWORD", "your_password"),
+        "user": os.getenv("DB_USER", "root"),
+        "password": os.getenv("DB_PASSWORD", ""),
     }
 
 
