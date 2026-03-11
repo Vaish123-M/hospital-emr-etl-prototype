@@ -1,0 +1,3 @@
+patient_id,phone_number,email,doctor_name,symptoms,visit_date
+2,09699836744,vaishmamulkar@gmail.com,Dr Sharma,"Fever, headache",11-03-2026
+3,9988776655,meera.iyer@email.com,Dr Iyer,Routine checkup,2026-03-10

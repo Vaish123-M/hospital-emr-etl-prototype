@@ -22,3 +22,18 @@ class PatientCreate(PatientBase):
 class PatientResponse(PatientBase):
     patient_id: int
     registration_date: Optional[date] = None
+
+
+class VisitBase(BaseModel):
+    patient_id: int
+    doctor_name: str = Field(min_length=1, max_length=100)
+    symptoms: Optional[str] = None
+    visit_date: date
+
+
+class VisitCreate(VisitBase):
+    pass
+
+
+class VisitResponse(VisitBase):
+    visit_id: int

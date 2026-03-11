@@ -6,12 +6,15 @@ from mysql.connector import Error
 
 from .database import get_connection
 from .models import (
+    INSERT_VISIT,
     INSERT_PATIENT,
     PATIENT_COLUMNS,
     SELECT_ALL_PATIENTS,
     SELECT_PATIENT_BY_ID,
+    SELECT_VISITS_BY_PATIENT_ID,
+    VISIT_COLUMNS,
 )
-from .schemas import PatientCreate, PatientResponse
+from .schemas import PatientCreate, PatientResponse, VisitCreate, VisitResponse
 
 app = FastAPI(title="Hospital Patient Management API")
 
@@ -26,6 +29,10 @@ app.add_middleware(
 
 def row_to_patient_dict(row):
     return dict(zip(PATIENT_COLUMNS, row))
+
+
+def row_to_visit_dict(row):
+    return dict(zip(VISIT_COLUMNS, row))
 
 
 @app.get("/")
@@ -134,6 +141,89 @@ def create_patient(patient: PatientCreate):
             raise HTTPException(
                 status_code=409,
                 detail="Duplicate value detected. Phone number or email already exists.",
+            )
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None and connection.is_connected():
+            connection.close()
+
+
+@app.get("/patients/{patient_id}/visits", response_model=list[VisitResponse])
+def get_patient_visits(patient_id: int):
+    connection = None
+    cursor = None
+    try:
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(SELECT_PATIENT_BY_ID, (patient_id,))
+        patient_row = cursor.fetchone()
+        if patient_row is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        cursor.execute(SELECT_VISITS_BY_PATIENT_ID, (patient_id,))
+        rows = cursor.fetchall()
+        return [row_to_visit_dict(row) for row in rows]
+    except Error as exc:
+        if getattr(exc, "errno", None) == 2003:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "MySQL is not reachable at localhost:3306. "
+                    "Start MySQL service and verify DB_* environment variables."
+                ),
+            )
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None and connection.is_connected():
+            connection.close()
+
+
+@app.post("/visits", response_model=VisitResponse, status_code=201)
+def create_visit(visit: VisitCreate):
+    connection = None
+    cursor = None
+    try:
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(SELECT_PATIENT_BY_ID, (visit.patient_id,))
+        patient_row = cursor.fetchone()
+        if patient_row is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        payload = (
+            visit.patient_id,
+            visit.doctor_name,
+            visit.symptoms,
+            visit.visit_date,
+        )
+
+        cursor.execute(INSERT_VISIT, payload)
+        visit_id = cursor.lastrowid
+        connection.commit()
+
+        return {
+            "visit_id": visit_id,
+            "patient_id": visit.patient_id,
+            "doctor_name": visit.doctor_name,
+            "symptoms": visit.symptoms,
+            "visit_date": visit.visit_date,
+        }
+    except Error as exc:
+        if connection is not None:
+            connection.rollback()
+        if getattr(exc, "errno", None) == 2003:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "MySQL is not reachable at localhost:3306. "
+                    "Start MySQL service and verify DB_* environment variables."
+                ),
             )
         raise HTTPException(status_code=500, detail=f"Database error: {exc}")
     finally:

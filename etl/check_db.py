@@ -38,6 +38,17 @@ def main() -> None:
         total_records = cursor.fetchone()["total"]
         print(f"Total records in patients: {total_records}")
 
+        # Total row count in visits table (optional during early setup).
+        try:
+            cursor.execute("SELECT COUNT(*) AS total FROM visits")
+            total_visits = cursor.fetchone()["total"]
+            print(f"Total records in visits: {total_visits}")
+        except Error as visit_exc:
+            if getattr(visit_exc, "errno", None) == 1146:
+                print("Visits table not found. Re-run schema.sql to create normalized visit storage.")
+            else:
+                raise
+
         # Preview first 5 patient records.
         cursor.execute(
             """

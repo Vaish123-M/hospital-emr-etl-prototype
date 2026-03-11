@@ -6,6 +6,13 @@ Architecture:
 
 Excel Data -> Python ETL Pipeline -> MySQL Database -> FastAPI Backend -> React + Tailwind Frontend
 
+Core ETL modules now include:
+
+- Data profiling and quality reporting
+- Data mapping documentation
+- Modular cleaning and validation
+- Automated pipeline runner with logging
+
 ## Problem Statement
 
 Small hospitals often store patient records in Excel files. This causes:
@@ -35,8 +42,14 @@ hospital-emr-etl-prototype/
 │   ├── models.py
 │   └── schemas.py
 ├── etl/
+│   ├── data_profiling.py
 │   ├── check_db.py
 │   └── ingest.py
+│   ├── logging_config.py
+│   └── run_pipeline.py
+├── docs/
+│   ├── data_mapping.md
+│   └── data_quality_report.md
 ├── frontend/
 │   ├── package.json
 │   ├── postcss.config.js
@@ -58,7 +71,7 @@ hospital-emr-etl-prototype/
 This creates:
 
 - Database: `hospital_db`
-- Table: `patients`
+- Tables: `patients`, `visits`
 
 Key constraints:
 
@@ -66,6 +79,7 @@ Key constraints:
 - `first_name`, `last_name`, `phone_number`, `registration_date` are NOT NULL
 - `phone_number` UNIQUE
 - `email` UNIQUE
+- `visits.patient_id` foreign key references `patients.patient_id`
 
 ### Option A: Local MySQL Service
 
@@ -115,6 +129,19 @@ Set environment variables (optional, defaults are provided):
 
 ## 4) Run ETL to Import Excel Data
 
+### 4.1 Generate Data Profiling Report
+
+```bash
+python etl/data_profiling.py
+```
+
+This updates [docs/data_quality_report.md](docs/data_quality_report.md) with:
+
+- Missing values by column
+- Duplicate phone/email checks
+- Invalid date counts
+- Inconsistent format indicators
+
 ```bash
 python etl/ingest.py
 ```
@@ -139,6 +166,20 @@ Optional data quality check:
 python etl/check_db.py
 ```
 
+### 4.2 Run End-to-End Automated Pipeline
+
+```bash
+python etl/run_pipeline.py
+```
+
+Pipeline flow:
+
+Excel file -> profiling -> cleaning/validation -> mapping -> MySQL insert
+
+Logs are written to:
+
+- `etl/etl.log`
+
 ## 5) Run FastAPI Backend
 
 ```bash
@@ -156,6 +197,8 @@ APIs:
 - `POST /patients` -> register a new patient
 - `GET /patients` -> list all patients
 - `GET /patients/{id}` -> get one patient
+- `GET /patients/{id}/visits` -> list patient visit history
+- `POST /visits` -> add a patient visit
 
 Docs:
 
@@ -183,6 +226,13 @@ Optional frontend environment variable:
 4. Open dashboard and register a new patient using the form.
 5. View all patients in the table.
 6. Click `View` on a row to fetch and display full patient details.
+7. Add a visit and view visit history for the selected patient.
 
 This completes the end-to-end flow from Excel ingestion to patient management UI.
+
+## Data Mapping Reference
+
+See [docs/data_mapping.md](docs/data_mapping.md) for the full Excel column to database field mapping.
+
+For visit-history ingestion sheet format, see [docs/visits_sheet_template.md](docs/visits_sheet_template.md) and sample file [sample_data/visits_template.csv](sample_data/visits_template.csv).
 

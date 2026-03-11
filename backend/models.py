@@ -11,6 +11,14 @@ PATIENT_COLUMNS = [
     "registration_date",
 ]
 
+VISIT_COLUMNS = [
+    "visit_id",
+    "patient_id",
+    "doctor_name",
+    "symptoms",
+    "visit_date",
+]
+
 
 SELECT_ALL_PATIENTS = """
 SELECT
@@ -58,4 +66,28 @@ INSERT INTO patients (
     registration_date
 )
 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+"""
+
+
+SELECT_VISITS_BY_PATIENT_ID = """
+SELECT
+    visit_id,
+    patient_id,
+    doctor_name,
+    symptoms,
+    visit_date
+FROM visits
+WHERE patient_id = %s
+ORDER BY visit_date DESC, visit_id DESC;
+"""
+
+
+INSERT_VISIT = """
+INSERT INTO visits (
+    patient_id,
+    doctor_name,
+    symptoms,
+    visit_date
+)
+VALUES (%s, %s, %s, %s);
 """

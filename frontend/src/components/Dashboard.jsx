@@ -16,6 +16,12 @@ const initialForm = {
   blood_group: "",
 };
 
+const initialVisitForm = {
+  doctor_name: "",
+  symptoms: "",
+  visit_date: new Date().toISOString().split("T")[0],
+};
+
 export default function Dashboard() {
   const [formData, setFormData] = useState(initialForm);
   const [patients, setPatients] = useState([]);
@@ -23,6 +29,10 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [visits, setVisits] = useState([]);
+  const [visitLoading, setVisitLoading] = useState(false);
+  const [visitSubmitting, setVisitSubmitting] = useState(false);
+  const [visitForm, setVisitForm] = useState(initialVisitForm);
 
   async function fetchPatients() {
     setLoading(true);
@@ -43,11 +53,18 @@ export default function Dashboard() {
 
   async function handleViewPatientDetails(patientId) {
     setError("");
+    setVisitLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/patients/${patientId}`);
-      setSelectedPatient(response.data);
+      const [patientResponse, visitsResponse] = await Promise.all([
+        axios.get(`${API_BASE_URL}/patients/${patientId}`),
+        axios.get(`${API_BASE_URL}/patients/${patientId}/visits`),
+      ]);
+      setSelectedPatient(patientResponse.data);
+      setVisits(visitsResponse.data);
     } catch {
       setError("Could not fetch patient details.");
+    } finally {
+      setVisitLoading(false);
     }
   }
 
@@ -73,12 +90,46 @@ export default function Dashboard() {
       });
       setFormData(initialForm);
       setSelectedPatient(null);
+      setVisits([]);
       await fetchPatients();
     } catch (submitError) {
       const detail = submitError?.response?.data?.detail;
       setError(detail || "Could not add patient.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function handleVisitChange(event) {
+    const { name, value } = event.target;
+    setVisitForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleVisitSubmit(event) {
+    event.preventDefault();
+    if (!selectedPatient) return;
+
+    setVisitSubmitting(true);
+    setError("");
+
+    try {
+      await axios.post(`${API_BASE_URL}/visits`, {
+        patient_id: selectedPatient.patient_id,
+        doctor_name: visitForm.doctor_name,
+        symptoms: visitForm.symptoms || null,
+        visit_date: visitForm.visit_date,
+      });
+
+      const visitsResponse = await axios.get(
+        `${API_BASE_URL}/patients/${selectedPatient.patient_id}/visits`
+      );
+      setVisits(visitsResponse.data);
+      setVisitForm(initialVisitForm);
+    } catch (submitError) {
+      const detail = submitError?.response?.data?.detail;
+      setError(detail || "Could not add visit.");
+    } finally {
+      setVisitSubmitting(false);
     }
   }
 
@@ -119,6 +170,79 @@ export default function Dashboard() {
               <p className="md:col-span-2"><span className="font-semibold">Address:</span> {selectedPatient.address || "-"}</p>
               <p><span className="font-semibold">Blood Group:</span> {selectedPatient.blood_group || "-"}</p>
               <p><span className="font-semibold">Registration Date:</span> {selectedPatient.registration_date || "-"}</p>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="mb-3 text-lg font-semibold text-slate-800">Add Visit</h3>
+              <form onSubmit={handleVisitSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <input
+                  name="doctor_name"
+                  value={visitForm.doctor_name}
+                  onChange={handleVisitChange}
+                  placeholder="Doctor Name"
+                  className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500"
+                  required
+                />
+                <input
+                  name="visit_date"
+                  type="date"
+                  value={visitForm.visit_date}
+                  onChange={handleVisitChange}
+                  className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={visitSubmitting}
+                  className="rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white transition hover:bg-teal-700 disabled:opacity-70"
+                >
+                  {visitSubmitting ? "Saving..." : "Save Visit"}
+                </button>
+                <textarea
+                  name="symptoms"
+                  value={visitForm.symptoms}
+                  onChange={handleVisitChange}
+                  placeholder="Symptoms / Notes"
+                  className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500 md:col-span-3"
+                  rows={3}
+                />
+              </form>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="mb-3 text-lg font-semibold text-slate-800">Visit History</h3>
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="p-2">Visit ID</th>
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Doctor</th>
+                      <th className="p-2">Symptoms</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visitLoading ? (
+                      <tr>
+                        <td className="border-t p-2" colSpan={4}>Loading visit history...</td>
+                      </tr>
+                    ) : visits.length === 0 ? (
+                      <tr>
+                        <td className="border-t p-2" colSpan={4}>No visits recorded yet.</td>
+                      </tr>
+                    ) : (
+                      visits.map((visit) => (
+                        <tr key={visit.visit_id} className="border-t">
+                          <td className="p-2">{visit.visit_id}</td>
+                          <td className="p-2">{visit.visit_date}</td>
+                          <td className="p-2">{visit.doctor_name}</td>
+                          <td className="p-2">{visit.symptoms || "-"}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         )}
