@@ -33,6 +33,10 @@ export default function Dashboard() {
   const [visitLoading, setVisitLoading] = useState(false);
   const [visitSubmitting, setVisitSubmitting] = useState(false);
   const [visitForm, setVisitForm] = useState(initialVisitForm);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
 
   async function fetchPatients() {
     setLoading(true);
@@ -133,6 +137,73 @@ export default function Dashboard() {
     }
   }
 
+  function handleFileSelection(file) {
+    if (!file) return;
+    const allowed = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+    ];
+
+    const validExtension = /\.(xlsx|xls)$/i.test(file.name);
+    const validMimeType = allowed.includes(file.type) || file.type === "";
+
+    if (!validExtension || !validMimeType) {
+      setError("Please upload a valid Excel file (.xlsx or .xls).");
+      setUploadFile(null);
+      return;
+    }
+
+    setError("");
+    setUploadResult(null);
+    setUploadFile(file);
+  }
+
+  function handleFileInputChange(event) {
+    handleFileSelection(event.target.files?.[0]);
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault();
+    setDragActive(true);
+  }
+
+  function handleDragLeave(event) {
+    event.preventDefault();
+    setDragActive(false);
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    setDragActive(false);
+    handleFileSelection(event.dataTransfer.files?.[0]);
+  }
+
+  async function handleUploadExcel() {
+    if (!uploadFile) {
+      setError("Please choose an Excel file first.");
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/upload-excel`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setUploadResult(response.data);
+      await fetchPatients();
+    } catch (uploadError) {
+      const detail = uploadError?.response?.data?.detail;
+      setError(detail || "Could not import Excel data.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-sky-50 px-6 py-8 animate-fade-in">
       <div className="mx-auto max-w-6xl">
@@ -156,6 +227,142 @@ export default function Dashboard() {
             submitting={submitting}
           />
         </div>
+
+        <section className="mb-8 rounded-xl border border-sky-100 bg-white p-5 shadow-lg">
+          <h2 className="mb-3 text-xl font-semibold text-slate-800">Import EMR Data</h2>
+          <p className="mb-4 text-sm text-slate-600">
+            Upload camp or hospital Excel records (.xlsx/.xls). The system profiles, cleans,
+            and imports patient records while keeping manual registration available.
+          </p>
+
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`rounded-xl border-2 border-dashed p-6 text-center transition ${
+              dragActive
+                ? "border-teal-500 bg-teal-50"
+                : "border-sky-200 bg-sky-50"
+            }`}
+          >
+            <p className="mb-3 text-sm text-slate-700">Drag and drop your Excel file here</p>
+            <p className="mb-4 text-xs text-slate-500">Accepted formats: .xlsx, .xls</p>
+            <label className="inline-flex cursor-pointer items-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow transition hover:bg-slate-50">
+              Choose File
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+            </label>
+            {uploadFile && (
+              <p className="mt-3 text-sm text-teal-700">Selected file: {uploadFile.name}</p>
+            )}
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleUploadExcel}
+              disabled={uploading}
+              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-70"
+            >
+              {uploading ? "Uploading..." : "Upload and Import"}
+            </button>
+          </div>
+
+          {uploadResult && (
+            <div className="mt-6 space-y-6">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                <p>
+                  Imported file: <span className="font-semibold">{uploadResult.file_name}</span>
+                </p>
+                <p>
+                  Records after cleaning: <span className="font-semibold">{uploadResult.import_summary?.records_after_cleaning ?? 0}</span>
+                </p>
+                <p>
+                  Records inserted: <span className="font-semibold">{uploadResult.import_summary?.records_inserted ?? 0}</span>
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 p-4">
+                <h3 className="mb-3 text-lg font-semibold text-slate-800">Data Quality Report</h3>
+                <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
+                  <p>
+                    <span className="font-semibold">Total Records:</span>{" "}
+                    {uploadResult.data_quality_report?.total_records ?? 0}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Duplicate Phone Entries:</span>{" "}
+                    {uploadResult.data_quality_report?.duplicate_phone_entries ?? 0}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Duplicate Email Entries:</span>{" "}
+                    {uploadResult.data_quality_report?.duplicate_email_entries ?? 0}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Invalid Date Formats:</span>{" "}
+                    {uploadResult.data_quality_report?.invalid_date_formats ?? 0}
+                  </p>
+                </div>
+
+                <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="p-2">Column</th>
+                        <th className="p-2">Missing Values</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(uploadResult.data_quality_report?.missing_values || {}).map(
+                        ([column, count]) => (
+                          <tr key={column} className="border-t">
+                            <td className="p-2">{column}</td>
+                            <td className="p-2">{count}</td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 p-4">
+                <h3 className="mb-3 text-lg font-semibold text-slate-800">Excel Preview (First 10 Rows)</h3>
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        {(uploadResult.preview_columns || []).map((column) => (
+                          <th key={column} className="p-2">{column}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(uploadResult.preview_rows || []).length === 0 ? (
+                        <tr>
+                          <td className="border-t p-2" colSpan={(uploadResult.preview_columns || []).length || 1}>
+                            No rows available in uploaded file.
+                          </td>
+                        </tr>
+                      ) : (
+                        (uploadResult.preview_rows || []).map((row, index) => (
+                          <tr key={`preview-${index}`} className="border-t">
+                            {(uploadResult.preview_columns || []).map((column) => (
+                              <td key={`${index}-${column}`} className="p-2">{row[column] ?? "-"}</td>
+                            ))}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
 
         {selectedPatient && (
           <section className="mb-8 rounded-xl border border-sky-100 bg-white p-5 shadow-lg">

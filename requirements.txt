@@ -3,3 +3,5 @@ uvicorn
 pandas
 mysql-connector-python
 openpyxl
+python-multipart
+xlrd

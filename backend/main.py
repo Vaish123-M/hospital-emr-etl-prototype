@@ -1,6 +1,8 @@
 from datetime import date
+from pathlib import Path
+import tempfile
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from mysql.connector import Error
 
@@ -15,6 +17,7 @@ from .models import (
     VISIT_COLUMNS,
 )
 from .schemas import PatientCreate, PatientResponse, VisitCreate, VisitResponse
+from etl.excel_import import process_excel_upload
 
 app = FastAPI(title="Hospital Patient Management API")
 
@@ -231,3 +234,31 @@ def create_visit(visit: VisitCreate):
             cursor.close()
         if connection is not None and connection.is_connected():
             connection.close()
+
+
+@app.post("/upload-excel")
+async def upload_excel(file: UploadFile = File(...)):
+    extension = Path(file.filename or "").suffix.lower()
+    if extension not in {".xlsx", ".xls"}:
+        raise HTTPException(status_code=400, detail="Only .xlsx and .xls files are supported.")
+
+    temp_file_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as temp_file:
+            temp_file_path = Path(temp_file.name)
+            temp_file.write(await file.read())
+
+        result = process_excel_upload(temp_file_path)
+        return {
+            "file_name": file.filename,
+            **result,
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to process Excel file: {exc}")
+    finally:
+        if temp_file_path is not None and temp_file_path.exists():
+            temp_file_path.unlink(missing_ok=True)
