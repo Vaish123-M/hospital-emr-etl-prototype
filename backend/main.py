@@ -1,10 +1,12 @@
 from datetime import date
 from pathlib import Path
 import tempfile
+from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from mysql.connector import Error
+from pydantic import BaseModel
 
 from .database import get_connection
 from .models import (
@@ -17,9 +19,15 @@ from .models import (
     VISIT_COLUMNS,
 )
 from .schemas import PatientCreate, PatientResponse, VisitCreate, VisitResponse
-from etl.excel_import import process_excel_upload
+from etl.excel_import import analyze_excel_upload, clean_and_import_excel
 
 app = FastAPI(title="Hospital Patient Management API")
+
+UPLOAD_CACHE: dict[str, Path] = {}
+
+
+class CleanImportRequest(BaseModel):
+    upload_id: str
 
 app.add_middleware(
     CORSMiddleware,
@@ -248,8 +256,12 @@ async def upload_excel(file: UploadFile = File(...)):
             temp_file_path = Path(temp_file.name)
             temp_file.write(await file.read())
 
-        result = process_excel_upload(temp_file_path)
+        upload_id = str(uuid4())
+        UPLOAD_CACHE[upload_id] = temp_file_path
+
+        result = analyze_excel_upload(temp_file_path)
         return {
+            "upload_id": upload_id,
             "file_name": file.filename,
             **result,
         }
@@ -259,6 +271,36 @@ async def upload_excel(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to process Excel file: {exc}")
+
+
+@app.post("/clean-import-data")
+def clean_import_data(payload: CleanImportRequest):
+    upload_id = payload.upload_id
+    temp_file_path = UPLOAD_CACHE.get(upload_id)
+
+    if temp_file_path is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Upload session not found. Please upload the Excel file again.",
+        )
+
+    if not temp_file_path.exists():
+        UPLOAD_CACHE.pop(upload_id, None)
+        raise HTTPException(
+            status_code=404,
+            detail="Temporary upload file is no longer available. Please upload again.",
+        )
+
+    try:
+        result = clean_and_import_excel(temp_file_path)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to import cleaned records: {exc}")
     finally:
-        if temp_file_path is not None and temp_file_path.exists():
+        UPLOAD_CACHE.pop(upload_id, None)
+        if temp_file_path.exists():
             temp_file_path.unlink(missing_ok=True)

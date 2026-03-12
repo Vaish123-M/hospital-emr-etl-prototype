@@ -35,7 +35,10 @@ export default function Dashboard() {
   const [visitForm, setVisitForm] = useState(initialVisitForm);
   const [uploadFile, setUploadFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
+  const [importResult, setImportResult] = useState(null);
+  const [pipelineLogs, setPipelineLogs] = useState([]);
   const [dragActive, setDragActive] = useState(false);
 
   async function fetchPatients() {
@@ -155,6 +158,8 @@ export default function Dashboard() {
 
     setError("");
     setUploadResult(null);
+    setImportResult(null);
+    setPipelineLogs([]);
     setUploadFile(file);
   }
 
@@ -195,12 +200,37 @@ export default function Dashboard() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadResult(response.data);
-      await fetchPatients();
+      setImportResult(null);
+      setPipelineLogs(response.data.logs || []);
     } catch (uploadError) {
       const detail = uploadError?.response?.data?.detail;
       setError(detail || "Could not import Excel data.");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleCleanAndImport() {
+    if (!uploadResult?.upload_id) {
+      setError("Upload the Excel file first.");
+      return;
+    }
+
+    setImporting(true);
+    setError("");
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/clean-import-data`, {
+        upload_id: uploadResult.upload_id,
+      });
+      setImportResult(response.data);
+      setPipelineLogs((prev) => [...prev, ...(response.data.logs || [])]);
+      await fetchPatients();
+    } catch (importError) {
+      const detail = importError?.response?.data?.detail;
+      setError(detail || "Could not clean and import data.");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -268,7 +298,15 @@ export default function Dashboard() {
               disabled={uploading}
               className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-70"
             >
-              {uploading ? "Uploading..." : "Upload and Import"}
+              {uploading ? "Uploading..." : "Upload Excel"}
+            </button>
+            <button
+              type="button"
+              onClick={handleCleanAndImport}
+              disabled={importing || !uploadResult?.upload_id}
+              className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+            >
+              {importing ? "Importing..." : "Clean and Import Data"}
             </button>
           </div>
 
@@ -279,10 +317,7 @@ export default function Dashboard() {
                   Imported file: <span className="font-semibold">{uploadResult.file_name}</span>
                 </p>
                 <p>
-                  Records after cleaning: <span className="font-semibold">{uploadResult.import_summary?.records_after_cleaning ?? 0}</span>
-                </p>
-                <p>
-                  Records inserted: <span className="font-semibold">{uploadResult.import_summary?.records_inserted ?? 0}</span>
+                  Upload ID: <span className="font-semibold">{uploadResult.upload_id}</span>
                 </p>
               </div>
 
@@ -360,6 +395,43 @@ export default function Dashboard() {
                   </table>
                 </div>
               </div>
+
+              {importResult?.import_summary && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <h3 className="mb-3 text-lg font-semibold text-emerald-900">Import Results</h3>
+                  <div className="grid gap-2 text-sm text-emerald-950 md:grid-cols-2">
+                    <p>
+                      <span className="font-semibold">Records Found:</span>{" "}
+                      {importResult.import_summary.records_found ?? 0}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Records Inserted:</span>{" "}
+                      {importResult.import_summary.records_inserted ?? 0}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Duplicates Removed:</span>{" "}
+                      {importResult.import_summary.duplicates_removed ?? 0}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Invalid Rows Skipped:</span>{" "}
+                      {importResult.import_summary.invalid_rows_skipped ?? 0}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {pipelineLogs.length > 0 && (
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <h3 className="mb-3 text-lg font-semibold text-slate-800">ETL Logs</h3>
+                  <div className="max-h-48 overflow-y-auto rounded-lg bg-slate-900 p-3 font-mono text-xs text-emerald-300">
+                    {pipelineLogs.map((logLine, index) => (
+                      <p key={`log-${index}`} className="mb-1 last:mb-0">
+                        {logLine}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
