@@ -40,6 +40,17 @@ export default function Dashboard() {
   const [importResult, setImportResult] = useState(null);
   const [pipelineLogs, setPipelineLogs] = useState([]);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [importStatus, setImportStatus] = useState("");
+
+  function extractApiError(error, fallbackMessage) {
+    const detail = error?.response?.data?.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((item) => item?.msg).filter(Boolean).join(" | ") || fallbackMessage;
+    }
+    return fallbackMessage;
+  }
 
   async function fetchPatients() {
     setLoading(true);
@@ -160,6 +171,8 @@ export default function Dashboard() {
     setUploadResult(null);
     setImportResult(null);
     setPipelineLogs([]);
+    setUploadStatus("");
+    setImportStatus("");
     setUploadFile(file);
   }
 
@@ -191,20 +204,21 @@ export default function Dashboard() {
 
     setUploading(true);
     setError("");
+    setImportStatus("");
+    setUploadStatus("Uploading and profiling file...");
 
     const formData = new FormData();
     formData.append("file", uploadFile);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/upload-excel`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await axios.post(`${API_BASE_URL}/upload-excel`, formData);
       setUploadResult(response.data);
       setImportResult(null);
       setPipelineLogs(response.data.logs || []);
+      setUploadStatus("Upload complete. Review quality report and click Clean and Import Data.");
     } catch (uploadError) {
-      const detail = uploadError?.response?.data?.detail;
-      setError(detail || "Could not import Excel data.");
+      setError(extractApiError(uploadError, "Could not import Excel data."));
+      setUploadStatus("Upload failed.");
     } finally {
       setUploading(false);
     }
@@ -218,6 +232,7 @@ export default function Dashboard() {
 
     setImporting(true);
     setError("");
+    setImportStatus("Cleaning and importing records...");
 
     try {
       const response = await axios.post(`${API_BASE_URL}/clean-import-data`, {
@@ -226,9 +241,11 @@ export default function Dashboard() {
       setImportResult(response.data);
       setPipelineLogs((prev) => [...prev, ...(response.data.logs || [])]);
       await fetchPatients();
+      const inserted = response.data?.import_summary?.records_inserted ?? 0;
+      setImportStatus(`Import complete. ${inserted} records inserted.`);
     } catch (importError) {
-      const detail = importError?.response?.data?.detail;
-      setError(detail || "Could not clean and import data.");
+      setError(extractApiError(importError, "Could not clean and import data."));
+      setImportStatus("Clean and import failed.");
     } finally {
       setImporting(false);
     }
@@ -309,6 +326,34 @@ export default function Dashboard() {
               {importing ? "Importing..." : "Clean and Import Data"}
             </button>
           </div>
+
+          {(uploading || importing) && (
+            <p className="mt-3 text-sm text-slate-600">
+              {uploading
+                ? "Uploading and profiling file, please wait..."
+                : "Cleaning and importing records, please wait..."}
+            </p>
+          )}
+
+          {uploadStatus && (
+            <p
+              className={`mt-3 text-sm ${
+                uploadStatus.toLowerCase().includes("failed") ? "text-red-700" : "text-emerald-700"
+              }`}
+            >
+              {uploadStatus}
+            </p>
+          )}
+
+          {importStatus && (
+            <p
+              className={`mt-2 text-sm ${
+                importStatus.toLowerCase().includes("failed") ? "text-red-700" : "text-emerald-700"
+              }`}
+            >
+              {importStatus}
+            </p>
+          )}
 
           {uploadResult && (
             <div className="mt-6 space-y-6">
