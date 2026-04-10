@@ -91,3 +91,40 @@ INSERT INTO visits (
 )
 VALUES (%s, %s, %s, %s);
 """
+
+
+SELECT_PATIENT_OVERVIEW_COUNTS = """
+SELECT
+    COUNT(*) AS total_patients,
+    SUM(CASE WHEN registration_date = CURDATE() THEN 1 ELSE 0 END) AS new_today
+FROM patients;
+"""
+
+
+SELECT_REPEAT_PATIENT_COUNT = """
+SELECT COUNT(*)
+FROM (
+    SELECT patient_id
+    FROM visits
+    GROUP BY patient_id
+    HAVING COUNT(*) >= 2
+) AS repeat_patients;
+"""
+
+
+SELECT_VISIT_TREND_LAST_7_DAYS = """
+SELECT
+    DATE(visit_date) AS visit_day,
+    COUNT(*) AS visit_count
+FROM visits
+WHERE visit_date >= (CURDATE() - INTERVAL 6 DAY)
+GROUP BY DATE(visit_date)
+ORDER BY visit_day;
+"""
+
+
+SELECT_VISIT_SYMPTOMS = """
+SELECT symptoms
+FROM visits
+WHERE symptoms IS NOT NULL AND TRIM(symptoms) != '';
+"""

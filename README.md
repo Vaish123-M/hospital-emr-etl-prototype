@@ -74,6 +74,9 @@ Core ETL modules now include:
 - Patient list table with quick details
 - Patient detail panel
 - Add visit form and visit history table
+- Analytics panel with patient summary cards
+- Last-7-days visit trend visualization
+- Top symptoms snapshot for quick clinical insight
 
 ## Technologies Used
 

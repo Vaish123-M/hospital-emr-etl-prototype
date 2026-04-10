@@ -1,4 +1,5 @@
-from datetime import date
+from collections import Counter
+from datetime import date, timedelta
 from pathlib import Path
 import tempfile
 from uuid import uuid4
@@ -13,8 +14,12 @@ from .models import (
     INSERT_VISIT,
     INSERT_PATIENT,
     PATIENT_COLUMNS,
+    SELECT_PATIENT_OVERVIEW_COUNTS,
     SELECT_ALL_PATIENTS,
     SELECT_PATIENT_BY_ID,
+    SELECT_REPEAT_PATIENT_COUNT,
+    SELECT_VISIT_SYMPTOMS,
+    SELECT_VISIT_TREND_LAST_7_DAYS,
     SELECT_VISITS_BY_PATIENT_ID,
     VISIT_COLUMNS,
 )
@@ -46,9 +51,107 @@ def row_to_visit_dict(row):
     return dict(zip(VISIT_COLUMNS, row))
 
 
+def normalize_symptom_token(token: str) -> str:
+    normalized = token.strip().lower()
+    if not normalized:
+        return ""
+    return " ".join(word.capitalize() for word in normalized.split())
+
+
+def build_visit_trend(trend_rows):
+    today = date.today()
+    counts_by_day = {
+        (row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0])): int(row[1])
+        for row in trend_rows
+    }
+
+    trend = []
+    for day_offset in range(6, -1, -1):
+        trend_day = today - timedelta(days=day_offset)
+        iso_day = trend_day.isoformat()
+        trend.append(
+            {
+                "date": iso_day,
+                "label": trend_day.strftime("%a"),
+                "visits": counts_by_day.get(iso_day, 0),
+            }
+        )
+    return trend
+
+
 @app.get("/")
 def health_check():
     return {"message": "Hospital API is running"}
+
+
+@app.get("/analytics/overview")
+def analytics_overview():
+    connection = None
+    cursor = None
+
+    try:
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(SELECT_PATIENT_OVERVIEW_COUNTS)
+        counts_row = cursor.fetchone() or (0, 0)
+        total_patients = int(counts_row[0] or 0)
+        new_today = int(counts_row[1] or 0)
+
+        cursor.execute(SELECT_REPEAT_PATIENT_COUNT)
+        repeat_patient_row = cursor.fetchone() or (0,)
+        repeat_patients = int(repeat_patient_row[0] or 0)
+
+        repeat_visit_rate = round(
+            (repeat_patients / total_patients * 100) if total_patients > 0 else 0,
+            1,
+        )
+
+        cursor.execute(SELECT_VISIT_TREND_LAST_7_DAYS)
+        trend_rows = cursor.fetchall()
+        visit_trend = build_visit_trend(trend_rows)
+
+        cursor.execute(SELECT_VISIT_SYMPTOMS)
+        symptom_rows = cursor.fetchall()
+        symptom_counter: Counter[str] = Counter()
+        for (symptom_text,) in symptom_rows:
+            if not symptom_text:
+                continue
+            for raw_token in str(symptom_text).replace("/", ",").replace(";", ",").split(","):
+                token = normalize_symptom_token(raw_token)
+                if token:
+                    symptom_counter[token] += 1
+
+        top_symptoms = [
+            {"symptom": symptom, "count": count}
+            for symptom, count in symptom_counter.most_common(5)
+        ]
+
+        return {
+            "summary": {
+                "total_patients": total_patients,
+                "new_today": new_today,
+                "repeat_patients": repeat_patients,
+                "repeat_visit_rate": repeat_visit_rate,
+            },
+            "visit_trend": visit_trend,
+            "top_symptoms": top_symptoms,
+        }
+    except Error as exc:
+        if getattr(exc, "errno", None) == 2003:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "MySQL is not reachable at localhost:3306. "
+                    "Start MySQL service and verify DB_* environment variables."
+                ),
+            )
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None and connection.is_connected():
+            connection.close()
 
 
 @app.get("/patients", response_model=list[PatientResponse])

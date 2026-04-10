@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import AnalyticsPanel from "./AnalyticsPanel";
 import PatientForm from "./PatientForm";
 import PatientTable from "./PatientTable";
 
@@ -42,6 +43,9 @@ export default function Dashboard() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [importStatus, setImportStatus] = useState("");
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState("");
 
   function extractApiError(error, fallbackMessage) {
     const detail = error?.response?.data?.detail;
@@ -65,8 +69,22 @@ export default function Dashboard() {
     }
   }
 
+  async function fetchAnalytics() {
+    setAnalyticsLoading(true);
+    setAnalyticsError("");
+    try {
+      const response = await axios.get(`${API_BASE_URL}/analytics/overview`);
+      setAnalytics(response.data);
+    } catch {
+      setAnalyticsError("Could not load analytics.");
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }
+
   useEffect(() => {
     fetchPatients();
+    fetchAnalytics();
   }, []);
 
   async function handleViewPatientDetails(patientId) {
@@ -110,6 +128,7 @@ export default function Dashboard() {
       setSelectedPatient(null);
       setVisits([]);
       await fetchPatients();
+      await fetchAnalytics();
     } catch (submitError) {
       const detail = submitError?.response?.data?.detail;
       setError(detail || "Could not add patient.");
@@ -143,6 +162,7 @@ export default function Dashboard() {
       );
       setVisits(visitsResponse.data);
       setVisitForm(initialVisitForm);
+      await fetchAnalytics();
     } catch (submitError) {
       const detail = submitError?.response?.data?.detail;
       setError(detail || "Could not add visit.");
@@ -241,6 +261,7 @@ export default function Dashboard() {
       setImportResult(response.data);
       setPipelineLogs((prev) => [...prev, ...(response.data.logs || [])]);
       await fetchPatients();
+      await fetchAnalytics();
       const inserted = response.data?.import_summary?.records_inserted ?? 0;
       setImportStatus(`Import complete. ${inserted} records inserted.`);
     } catch (importError) {
@@ -265,6 +286,8 @@ export default function Dashboard() {
         </div>
 
         {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
+        <AnalyticsPanel analytics={analytics} loading={analyticsLoading} error={analyticsError} />
 
         <div className="mb-8">
           <PatientForm
