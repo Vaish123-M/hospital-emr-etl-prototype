@@ -36,6 +36,36 @@ function TrendChart({ points }) {
   );
 }
 
+function normalizeWeekdayTrend(points) {
+  const weekdayOrder = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const byLabel = new Map();
+
+  (points || []).forEach((point) => {
+    if (!point?.label || !weekdayOrder.includes(point.label)) return;
+
+    const existing = byLabel.get(point.label);
+    if (!existing) {
+      byLabel.set(point.label, {
+        date: point.date || point.label,
+        label: point.label,
+        visits: Number(point.visits || 0),
+      });
+      return;
+    }
+
+    byLabel.set(point.label, {
+      ...existing,
+      visits: Number(existing.visits || 0) + Number(point.visits || 0),
+    });
+  });
+
+  return weekdayOrder.map((label) => {
+    const found = byLabel.get(label);
+    if (found) return found;
+    return { date: label, label, visits: 0 };
+  });
+}
+
 export default function AnalyticsPanel({ analytics, loading, error }) {
   const summary = analytics?.summary || {
     total_patients: 0,
@@ -43,7 +73,7 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
     repeat_patients: 0,
     repeat_visit_rate: 0,
   };
-  const trend = analytics?.visit_trend || [];
+  const trend = normalizeWeekdayTrend(analytics?.visit_trend || []);
   const topSymptoms = analytics?.top_symptoms || [];
 
   return (
@@ -68,21 +98,7 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <TrendChart
-            points={
-              trend.length > 0
-                ? trend
-                : [
-                    { date: "-", label: "Mon", visits: 0 },
-                    { date: "-", label: "Tue", visits: 0 },
-                    { date: "-", label: "Wed", visits: 0 },
-                    { date: "-", label: "Thu", visits: 0 },
-                    { date: "-", label: "Fri", visits: 0 },
-                    { date: "-", label: "Sat", visits: 0 },
-                    { date: "-", label: "Sun", visits: 0 },
-                  ]
-            }
-          />
+          <TrendChart points={trend} />
         </div>
 
         <div className="rounded-xl border border-sky-100 bg-white p-4 shadow-lg">
