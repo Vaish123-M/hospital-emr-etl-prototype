@@ -322,6 +322,32 @@ Optional frontend environment variable:
 
 - `VITE_API_BASE_URL` (default: `http://localhost:8000`)
 
+## 7) Local One-Click Quickstart (Windows)
+
+If you have MySQL and Node.js installed locally, you can start MySQL, backend, and frontend together:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run_full_stack.ps1
+```
+
+What this script does:
+
+- Starts MySQL on `127.0.0.1:3306` (local dev process)
+- Applies `schema.sql`
+- Starts FastAPI backend at `http://localhost:8000`
+- Starts Vite frontend at `http://localhost:5173`
+
+To stop all processes started by the script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\stop_full_stack.ps1
+```
+
+Notes:
+
+- The helper creates local runtime files under `.runtime/` (git-ignored).
+- If MySQL is already running on port `3306`, the script reuses it.
+
 ## Application Flow Demonstration
 
 1. Import old Excel records with ETL (`python etl/ingest.py`).

@@ -21,3 +21,7 @@ Thumbs.db
 
 # Logs
 etl/etl.log
+
+# Local runtime artifacts
+.runtime/
+.mysql-data/

@@ -15,6 +15,17 @@ EXCEL_PATH = Path(__file__).resolve().parents[1] / "sample_data" / "patients.xls
 LOGGER = setup_logger("etl.ingest")
 
 
+def drop_duplicates_on_valid_identifier(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    """Drop duplicates only for rows with a non-empty identifier value."""
+    if column not in df.columns:
+        return df
+
+    valid_mask = df[column].notna() & (df[column].astype(str).str.strip() != "")
+    duplicate_mask = df.loc[valid_mask].duplicated(subset=[column], keep="first")
+    duplicate_indexes = df.loc[valid_mask].index[duplicate_mask]
+    return df.drop(index=duplicate_indexes)
+
+
 def get_db_config() -> dict:
     db_port = os.getenv("DB_PORT", "3306")
     if not db_port.isdigit():
@@ -88,11 +99,9 @@ def load_patients_dataframe(excel_path: Path = EXCEL_PATH) -> pd.DataFrame:
         }
     )
 
-    # Remove duplicates by strong identifiers to avoid redundant patient rows.
-    if "phone_number" in df.columns:
-        df = df.drop_duplicates(subset=["phone_number"], keep="first")
-    if "email" in df.columns:
-        df = df.drop_duplicates(subset=["email"], keep="first")
+    # Remove duplicates only when phone/email is present to keep rows with missing IDs.
+    df = drop_duplicates_on_valid_identifier(df, "phone_number")
+    df = drop_duplicates_on_valid_identifier(df, "email")
 
     return df.where(pd.notnull(df), None)
 
