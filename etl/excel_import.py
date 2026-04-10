@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from difflib import SequenceMatcher
 from typing import Any
 
 import mysql.connector
@@ -47,6 +48,50 @@ def _to_json_records(df: pd.DataFrame, limit: int = 10) -> tuple[list[str], list
     preview_df = df.head(limit).copy()
     preview_df = preview_df.where(pd.notnull(preview_df), None)
     return list(preview_df.columns), preview_df.to_dict(orient="records")
+
+
+def _name_similarity(a: str | None, b: str | None) -> float:
+    left = (a or "").strip().lower()
+    right = (b or "").strip().lower()
+    if not left or not right:
+        return 0.0
+    return SequenceMatcher(None, left, right).ratio()
+
+
+def drop_fuzzy_duplicates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    records = df.to_dict(orient="records")
+    keep_indexes: list[int] = []
+    fuzzy_removed = 0
+
+    for idx, row in enumerate(records):
+        is_duplicate = False
+        for kept_idx in keep_indexes:
+            kept = records[kept_idx]
+
+            same_phone = (
+                bool(row.get("phone_number"))
+                and bool(kept.get("phone_number"))
+                and str(row.get("phone_number")) == str(kept.get("phone_number"))
+            )
+            same_dob = (
+                bool(row.get("date_of_birth"))
+                and bool(kept.get("date_of_birth"))
+                and str(row.get("date_of_birth")) == str(kept.get("date_of_birth"))
+            )
+            similar_first = _name_similarity(row.get("first_name"), kept.get("first_name")) >= 0.88
+            similar_last = _name_similarity(row.get("last_name"), kept.get("last_name")) >= 0.88
+
+            if same_phone and same_dob and similar_first and similar_last:
+                is_duplicate = True
+                break
+
+        if is_duplicate:
+            fuzzy_removed += 1
+        else:
+            keep_indexes.append(idx)
+
+    filtered = pd.DataFrame([records[index] for index in keep_indexes], columns=df.columns)
+    return filtered, fuzzy_removed
 
 
 def profile_dataframe(raw_df: pd.DataFrame) -> dict:
@@ -157,9 +202,11 @@ def clean_and_transform_dataframe(raw_df: pd.DataFrame) -> tuple[pd.DataFrame, d
         )
         without_email = filtered_df[filtered_df["email"].isna()]
         filtered_df = pd.concat([with_email, without_email], ignore_index=True)
+
+    filtered_df, fuzzy_removed = drop_fuzzy_duplicates(filtered_df)
     after_dedupe = int(len(filtered_df))
 
-    duplicates_removed = before_dedupe - after_dedupe
+    duplicates_removed = (before_dedupe - after_dedupe) + fuzzy_removed
     cleaned = filtered_df[CANONICAL_COLUMNS].where(pd.notnull(filtered_df[CANONICAL_COLUMNS]), None)
 
     summary = {

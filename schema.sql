@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS visits (
     patient_id INT NOT NULL,
     doctor_name VARCHAR(100) NOT NULL,
     symptoms TEXT,
+    medications TEXT,
+    follow_up_date DATE,
     visit_date DATE NOT NULL,
     CONSTRAINT fk_visits_patient
         FOREIGN KEY (patient_id)
@@ -29,3 +31,13 @@ CREATE TABLE IF NOT EXISTS visits (
 
 CREATE INDEX idx_visits_patient_id ON visits(patient_id);
 CREATE INDEX idx_visits_visit_date ON visits(visit_date);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    audit_id INT AUTO_INCREMENT PRIMARY KEY,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id INT NULL,
+    action VARCHAR(50) NOT NULL,
+    changed_by VARCHAR(100) NOT NULL DEFAULT 'system',
+    changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details JSON NULL
+);

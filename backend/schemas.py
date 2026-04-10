@@ -28,6 +28,8 @@ class VisitBase(BaseModel):
     patient_id: int
     doctor_name: str = Field(min_length=1, max_length=100)
     symptoms: Optional[str] = None
+    medications: Optional[str] = None
+    follow_up_date: Optional[date] = None
     visit_date: date
 
 

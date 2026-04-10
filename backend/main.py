@@ -1,19 +1,26 @@
 from collections import Counter
 from datetime import date, timedelta
+import json
 from pathlib import Path
 import tempfile
 from uuid import uuid4
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from mysql.connector import Error
 from pydantic import BaseModel
 
 from .database import get_connection
 from .models import (
+    ALTER_VISITS_ADD_FOLLOW_UP_DATE,
+    ALTER_VISITS_ADD_MEDICATIONS,
+    CREATE_AUDIT_LOGS_TABLE,
     INSERT_VISIT,
+    INSERT_AUDIT_LOG,
     INSERT_PATIENT,
     PATIENT_COLUMNS,
+    SELECT_AUDIT_BY_PATIENT_ID,
+    SELECT_DOCTOR_WORKLOAD,
     SELECT_PATIENT_OVERVIEW_COUNTS,
     SELECT_ALL_PATIENTS,
     SELECT_PATIENT_BY_ID,
@@ -79,6 +86,99 @@ def build_visit_trend(trend_rows):
     return trend
 
 
+def calculate_age(dob_value):
+    if dob_value is None:
+        return None
+    today = date.today()
+    return today.year - dob_value.year - ((today.month, today.day) < (dob_value.month, dob_value.day))
+
+
+def compute_triage(patient: dict, visits: list[dict]) -> dict:
+    age = calculate_age(patient.get("date_of_birth"))
+    repeat_visits = len(visits)
+    symptom_text = " ".join((visit.get("symptoms") or "") for visit in visits).lower()
+
+    score = 0
+    reasons = []
+
+    if age is not None and age >= 60:
+        score += 2
+        reasons.append("Age 60+")
+
+    high_risk_keywords = [
+        "chest pain",
+        "breathless",
+        "breathing",
+        "stroke",
+        "severe",
+        "unconscious",
+        "high fever",
+    ]
+    if any(keyword in symptom_text for keyword in high_risk_keywords):
+        score += 3
+        reasons.append("Critical symptom keyword detected")
+
+    if repeat_visits >= 3:
+        score += 2
+        reasons.append("Frequent repeat visits")
+    elif repeat_visits >= 2:
+        score += 1
+        reasons.append("Multiple repeat visits")
+
+    if score >= 4:
+        risk = "red"
+    elif score >= 2:
+        risk = "amber"
+    else:
+        risk = "green"
+
+    return {
+        "risk": risk,
+        "score": score,
+        "age": age,
+        "repeat_visits": repeat_visits,
+        "reasons": reasons,
+    }
+
+
+def log_audit_event(connection, entity_type: str, entity_id: int | None, action: str, changed_by: str, details: dict):
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            INSERT_AUDIT_LOG,
+            (
+                entity_type,
+                entity_id,
+                action,
+                changed_by,
+                json.dumps(details),
+            ),
+        )
+    finally:
+        cursor.close()
+
+
+@app.on_event("startup")
+def ensure_schema_extensions():
+    connection = None
+    cursor = None
+    try:
+        connection = get_connection()
+        cursor = connection.cursor()
+        cursor.execute(ALTER_VISITS_ADD_MEDICATIONS)
+        cursor.execute(ALTER_VISITS_ADD_FOLLOW_UP_DATE)
+        cursor.execute(CREATE_AUDIT_LOGS_TABLE)
+        connection.commit()
+    except Error:
+        # Keep API booting even if DB is temporarily unavailable.
+        pass
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None and connection.is_connected():
+            connection.close()
+
+
 @app.get("/")
 def health_check():
     return {"message": "Hospital API is running"}
@@ -127,6 +227,12 @@ def analytics_overview():
             for symptom, count in symptom_counter.most_common(5)
         ]
 
+        cursor.execute(SELECT_DOCTOR_WORKLOAD)
+        doctor_workload = [
+            {"doctor_name": row[0], "visit_count": int(row[1])}
+            for row in cursor.fetchall()
+        ]
+
         return {
             "summary": {
                 "total_patients": total_patients,
@@ -136,6 +242,7 @@ def analytics_overview():
             },
             "visit_trend": visit_trend,
             "top_symptoms": top_symptoms,
+            "doctor_workload": doctor_workload,
         }
     except Error as exc:
         if getattr(exc, "errno", None) == 2003:
@@ -210,8 +317,126 @@ def get_patient_by_id(patient_id: int):
             connection.close()
 
 
+@app.get("/patients/{patient_id}/risk")
+def get_patient_risk(patient_id: int):
+    connection = None
+    cursor = None
+    try:
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(SELECT_PATIENT_BY_ID, (patient_id,))
+        patient_row = cursor.fetchone()
+        if patient_row is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        cursor.execute(SELECT_VISITS_BY_PATIENT_ID, (patient_id,))
+        visit_rows = cursor.fetchall()
+
+        patient = row_to_patient_dict(patient_row)
+        visits = [row_to_visit_dict(row) for row in visit_rows]
+        return compute_triage(patient, visits)
+    except Error as exc:
+        if getattr(exc, "errno", None) == 2003:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "MySQL is not reachable at localhost:3306. "
+                    "Start MySQL service and verify DB_* environment variables."
+                ),
+            )
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None and connection.is_connected():
+            connection.close()
+
+
+@app.get("/patients/{patient_id}/timeline")
+def get_patient_timeline(patient_id: int):
+    connection = None
+    cursor = None
+    try:
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(SELECT_PATIENT_BY_ID, (patient_id,))
+        patient_row = cursor.fetchone()
+        if patient_row is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        patient = row_to_patient_dict(patient_row)
+        events = [
+            {
+                "event_type": "registration",
+                "event_date": patient.get("registration_date"),
+                "title": "Patient Registered",
+                "details": {
+                    "name": f"{patient.get('first_name', '')} {patient.get('last_name', '')}".strip(),
+                    "phone_number": patient.get("phone_number"),
+                    "blood_group": patient.get("blood_group"),
+                },
+            }
+        ]
+
+        cursor.execute(SELECT_VISITS_BY_PATIENT_ID, (patient_id,))
+        visit_rows = cursor.fetchall()
+        for visit in [row_to_visit_dict(row) for row in visit_rows]:
+            events.append(
+                {
+                    "event_type": "visit",
+                    "event_date": visit.get("visit_date"),
+                    "title": f"Visit with Dr. {visit.get('doctor_name') or 'Unknown'}",
+                    "details": {
+                        "symptoms": visit.get("symptoms"),
+                        "medications": visit.get("medications"),
+                        "follow_up_date": visit.get("follow_up_date"),
+                    },
+                }
+            )
+
+        cursor.execute(SELECT_AUDIT_BY_PATIENT_ID, (patient_id, patient_id))
+        for audit_row in cursor.fetchall():
+            events.append(
+                {
+                    "event_type": "audit",
+                    "event_date": audit_row[5],
+                    "title": f"{audit_row[1]}: {audit_row[3]}",
+                    "details": {
+                        "changed_by": audit_row[4],
+                        "payload": audit_row[6],
+                    },
+                }
+            )
+
+        events.sort(
+            key=lambda event: (
+                event.get("event_date") is None,
+                str(event.get("event_date") or ""),
+            ),
+            reverse=True,
+        )
+        return {"patient_id": patient_id, "timeline": events}
+    except Error as exc:
+        if getattr(exc, "errno", None) == 2003:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "MySQL is not reachable at localhost:3306. "
+                    "Start MySQL service and verify DB_* environment variables."
+                ),
+            )
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None and connection.is_connected():
+            connection.close()
+
+
 @app.post("/patients", response_model=PatientResponse, status_code=201)
-def create_patient(patient: PatientCreate):
+def create_patient(patient: PatientCreate, request: Request):
     connection = None
     cursor = None
     try:
@@ -233,6 +458,20 @@ def create_patient(patient: PatientCreate):
 
         cursor.execute(INSERT_PATIENT, payload)
         new_patient_id = cursor.lastrowid
+
+        changed_by = request.headers.get("X-User", "system")
+        log_audit_event(
+            connection,
+            "patient",
+            new_patient_id,
+            "create",
+            changed_by,
+            {
+                "first_name": patient.first_name,
+                "last_name": patient.last_name,
+                "phone_number": patient.phone_number,
+            },
+        )
         connection.commit()
 
         cursor.execute(SELECT_PATIENT_BY_ID, (new_patient_id,))
@@ -298,7 +537,7 @@ def get_patient_visits(patient_id: int):
 
 
 @app.post("/visits", response_model=VisitResponse, status_code=201)
-def create_visit(visit: VisitCreate):
+def create_visit(visit: VisitCreate, request: Request):
     connection = None
     cursor = None
     try:
@@ -314,11 +553,27 @@ def create_visit(visit: VisitCreate):
             visit.patient_id,
             visit.doctor_name,
             visit.symptoms,
+            visit.medications,
+            visit.follow_up_date,
             visit.visit_date,
         )
 
         cursor.execute(INSERT_VISIT, payload)
         visit_id = cursor.lastrowid
+
+        changed_by = request.headers.get("X-User", "system")
+        log_audit_event(
+            connection,
+            "visit",
+            visit_id,
+            "create",
+            changed_by,
+            {
+                "patient_id": visit.patient_id,
+                "doctor_name": visit.doctor_name,
+                "visit_date": str(visit.visit_date),
+            },
+        )
         connection.commit()
 
         return {
@@ -326,6 +581,8 @@ def create_visit(visit: VisitCreate):
             "patient_id": visit.patient_id,
             "doctor_name": visit.doctor_name,
             "symptoms": visit.symptoms,
+            "medications": visit.medications,
+            "follow_up_date": visit.follow_up_date,
             "visit_date": visit.visit_date,
         }
     except Error as exc:

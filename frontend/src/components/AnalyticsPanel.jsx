@@ -75,6 +75,7 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
   };
   const trend = normalizeWeekdayTrend(analytics?.visit_trend || []);
   const topSymptoms = analytics?.top_symptoms || [];
+  const doctorWorkload = analytics?.doctor_workload || [];
 
   return (
     <section className="mb-8 rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-teal-50 p-5 shadow-lg">
@@ -118,6 +119,24 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
             </ul>
           )}
         </div>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-sky-100 bg-white p-4 shadow-lg">
+        <h3 className="mb-3 text-lg font-semibold text-slate-800">Doctor Workload</h3>
+        {doctorWorkload.length === 0 ? (
+          <p className="text-sm text-slate-500">No doctor visit workload data available yet.</p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {doctorWorkload.map((item) => (
+              <div key={item.doctor_name} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                <span className="text-slate-700">Dr. {item.doctor_name}</span>
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
+                  {item.visit_count} visits
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

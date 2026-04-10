@@ -42,6 +42,7 @@ Core ETL modules now include:
 - Converts date fields into database-compatible ISO format
 - Handles null and placeholder values safely
 - Removes duplicate patient rows before insertion
+- Adds fuzzy duplicate detection for near-match name + phone + DOB combinations
 
 ### Database Design and Integrity
 
@@ -66,6 +67,9 @@ Core ETL modules now include:
 - Visit creation endpoint
 - Visit history endpoint by patient
 - Consistent JSON responses and validation using Pydantic models
+- Patient timeline endpoint (registration, visits, and audit events)
+- Risk and triage endpoint (red/amber/green with scoring reasons)
+- Analytics overview endpoint with doctor workload summary
 
 ### Frontend Web Interface (React + Tailwind)
 
@@ -77,6 +81,14 @@ Core ETL modules now include:
 - Analytics panel with patient summary cards
 - Last-7-days visit trend visualization
 - Top symptoms snapshot for quick clinical insight
+- Doctor workload snapshot for hospital admins
+- Patient timeline section with symptoms, medications, and follow-up tracking
+- Triage risk flag card in patient details
+
+### Audit and Compliance
+
+- Tracks patient and visit create events in `audit_logs`
+- Stores action type, actor (`changed_by`), timestamp, and JSON details
 
 ## Technologies Used
 

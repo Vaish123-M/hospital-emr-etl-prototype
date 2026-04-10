@@ -20,6 +20,8 @@ const initialForm = {
 const initialVisitForm = {
   doctor_name: "",
   symptoms: "",
+  medications: "",
+  follow_up_date: "",
   visit_date: new Date().toISOString().split("T")[0],
 };
 
@@ -34,6 +36,8 @@ export default function Dashboard() {
   const [visitLoading, setVisitLoading] = useState(false);
   const [visitSubmitting, setVisitSubmitting] = useState(false);
   const [visitForm, setVisitForm] = useState(initialVisitForm);
+  const [timeline, setTimeline] = useState([]);
+  const [riskData, setRiskData] = useState(null);
   const [uploadFile, setUploadFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -91,12 +95,16 @@ export default function Dashboard() {
     setError("");
     setVisitLoading(true);
     try {
-      const [patientResponse, visitsResponse] = await Promise.all([
+      const [patientResponse, visitsResponse, timelineResponse, riskResponse] = await Promise.all([
         axios.get(`${API_BASE_URL}/patients/${patientId}`),
         axios.get(`${API_BASE_URL}/patients/${patientId}/visits`),
+        axios.get(`${API_BASE_URL}/patients/${patientId}/timeline`),
+        axios.get(`${API_BASE_URL}/patients/${patientId}/risk`),
       ]);
       setSelectedPatient(patientResponse.data);
       setVisits(visitsResponse.data);
+      setTimeline(timelineResponse.data?.timeline || []);
+      setRiskData(riskResponse.data || null);
     } catch {
       setError("Could not fetch patient details.");
     } finally {
@@ -154,13 +162,23 @@ export default function Dashboard() {
         patient_id: selectedPatient.patient_id,
         doctor_name: visitForm.doctor_name,
         symptoms: visitForm.symptoms || null,
+        medications: visitForm.medications || null,
+        follow_up_date: visitForm.follow_up_date || null,
         visit_date: visitForm.visit_date,
       });
 
       const visitsResponse = await axios.get(
         `${API_BASE_URL}/patients/${selectedPatient.patient_id}/visits`
       );
+      const timelineResponse = await axios.get(
+        `${API_BASE_URL}/patients/${selectedPatient.patient_id}/timeline`
+      );
+      const riskResponse = await axios.get(
+        `${API_BASE_URL}/patients/${selectedPatient.patient_id}/risk`
+      );
       setVisits(visitsResponse.data);
+      setTimeline(timelineResponse.data?.timeline || []);
+      setRiskData(riskResponse.data || null);
       setVisitForm(initialVisitForm);
       await fetchAnalytics();
     } catch (submitError) {
@@ -507,6 +525,34 @@ export default function Dashboard() {
         {selectedPatient && (
           <section className="mb-8 rounded-xl border border-sky-100 bg-white p-5 shadow-lg">
             <h2 className="mb-3 text-xl font-semibold text-slate-800">Patient Details</h2>
+
+            {riskData && (
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                <p className="font-semibold text-slate-800">Triage Score</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    riskData.risk === "red"
+                      ? "bg-red-100 text-red-800"
+                      : riskData.risk === "amber"
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-emerald-100 text-emerald-800"
+                  }`}>
+                    {String(riskData.risk || "green").toUpperCase()}
+                  </span>
+                  <span className="text-slate-600">Score: {riskData.score ?? 0}</span>
+                  <span className="text-slate-600">Age: {riskData.age ?? "-"}</span>
+                  <span className="text-slate-600">Repeat Visits: {riskData.repeat_visits ?? 0}</span>
+                </div>
+                {Array.isArray(riskData.reasons) && riskData.reasons.length > 0 && (
+                  <ul className="mt-2 list-disc pl-5 text-slate-600">
+                    {riskData.reasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
               <p><span className="font-semibold">Patient ID:</span> {selectedPatient.patient_id}</p>
               <p><span className="font-semibold">Name:</span> {selectedPatient.first_name} {selectedPatient.last_name}</p>
@@ -553,6 +599,21 @@ export default function Dashboard() {
                   className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500 md:col-span-3"
                   rows={3}
                 />
+                <textarea
+                  name="medications"
+                  value={visitForm.medications}
+                  onChange={handleVisitChange}
+                  placeholder="Medications"
+                  className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500 md:col-span-2"
+                  rows={2}
+                />
+                <input
+                  name="follow_up_date"
+                  type="date"
+                  value={visitForm.follow_up_date}
+                  onChange={handleVisitChange}
+                  className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500"
+                />
               </form>
             </div>
 
@@ -589,6 +650,28 @@ export default function Dashboard() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="mb-3 text-lg font-semibold text-slate-800">Patient Timeline</h3>
+              <div className="space-y-3">
+                {timeline.length === 0 ? (
+                  <p className="text-sm text-slate-500">No timeline events available.</p>
+                ) : (
+                  timeline.map((event, idx) => (
+                    <article key={`${event.event_type}-${idx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                      <div className="mb-1 flex items-center justify-between gap-3">
+                        <p className="font-semibold text-slate-800">{event.title}</p>
+                        <span className="text-xs text-slate-500">{event.event_date || "-"}</span>
+                      </div>
+                      {event.details?.symptoms && <p><span className="font-medium">Symptoms:</span> {event.details.symptoms}</p>}
+                      {event.details?.medications && <p><span className="font-medium">Medications:</span> {event.details.medications}</p>}
+                      {event.details?.follow_up_date && <p><span className="font-medium">Follow-up:</span> {event.details.follow_up_date}</p>}
+                      {event.details?.changed_by && <p><span className="font-medium">Changed by:</span> {event.details.changed_by}</p>}
+                    </article>
+                  ))
+                )}
               </div>
             </div>
           </section>

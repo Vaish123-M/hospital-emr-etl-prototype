@@ -16,6 +16,8 @@ VISIT_COLUMNS = [
     "patient_id",
     "doctor_name",
     "symptoms",
+    "medications",
+    "follow_up_date",
     "visit_date",
 ]
 
@@ -75,6 +77,8 @@ SELECT
     patient_id,
     doctor_name,
     symptoms,
+    medications,
+    follow_up_date,
     visit_date
 FROM visits
 WHERE patient_id = %s
@@ -87,9 +91,11 @@ INSERT INTO visits (
     patient_id,
     doctor_name,
     symptoms,
+    medications,
+    follow_up_date,
     visit_date
 )
-VALUES (%s, %s, %s, %s);
+VALUES (%s, %s, %s, %s, %s, %s);
 """
 
 
@@ -127,4 +133,63 @@ SELECT_VISIT_SYMPTOMS = """
 SELECT symptoms
 FROM visits
 WHERE symptoms IS NOT NULL AND TRIM(symptoms) != '';
+"""
+
+
+SELECT_DOCTOR_WORKLOAD = """
+SELECT doctor_name, COUNT(*) AS visit_count
+FROM visits
+WHERE doctor_name IS NOT NULL AND TRIM(doctor_name) != ''
+GROUP BY doctor_name
+ORDER BY visit_count DESC, doctor_name ASC
+LIMIT 5;
+"""
+
+
+CREATE_AUDIT_LOGS_TABLE = """
+CREATE TABLE IF NOT EXISTS audit_logs (
+    audit_id INT AUTO_INCREMENT PRIMARY KEY,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id INT NULL,
+    action VARCHAR(50) NOT NULL,
+    changed_by VARCHAR(100) NOT NULL DEFAULT 'system',
+    changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details JSON NULL
+);
+"""
+
+
+ALTER_VISITS_ADD_MEDICATIONS = """
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS medications TEXT NULL;
+"""
+
+
+ALTER_VISITS_ADD_FOLLOW_UP_DATE = """
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS follow_up_date DATE NULL;
+"""
+
+
+INSERT_AUDIT_LOG = """
+INSERT INTO audit_logs (entity_type, entity_id, action, changed_by, details)
+VALUES (%s, %s, %s, %s, %s);
+"""
+
+
+SELECT_AUDIT_BY_PATIENT_ID = """
+SELECT
+    audit_id,
+    entity_type,
+    entity_id,
+    action,
+    changed_by,
+    changed_at,
+    details
+FROM audit_logs
+WHERE
+    (entity_type = 'patient' AND entity_id = %s)
+    OR (
+        entity_type = 'visit'
+        AND JSON_UNQUOTE(JSON_EXTRACT(details, '$.patient_id')) = CAST(%s AS CHAR)
+    )
+ORDER BY changed_at DESC, audit_id DESC;
 """
