@@ -349,6 +349,19 @@ export default function Dashboard() {
     }
   }
 
+  const auditEvents = timeline.filter((event) => event.event_type === "audit");
+
+  function formatAuditPayload(payload) {
+    if (!payload) return null;
+    if (typeof payload === "string") return payload;
+
+    try {
+      return JSON.stringify(payload, null, 2);
+    } catch {
+      return String(payload);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-sky-50 px-6 py-8 animate-fade-in">
       <div className="mx-auto max-w-6xl">
@@ -795,6 +808,40 @@ export default function Dashboard() {
                   ))
                 )}
               </div>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="mb-3 text-lg font-semibold text-slate-800">Audit Trail</h3>
+              {auditEvents.length === 0 ? (
+                <p className="text-sm text-slate-500">No audit events recorded for this patient yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {auditEvents.map((event, idx) => (
+                    <article
+                      key={`audit-${event.event_type}-${idx}`}
+                      className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"
+                    >
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                        <p className="font-semibold text-amber-950">{event.title}</p>
+                        <span className="text-xs text-amber-800">{event.event_date || "-"}</span>
+                      </div>
+                      {event.details?.changed_by && (
+                        <p className="text-amber-900">
+                          <span className="font-medium">Changed by:</span> {event.details.changed_by}
+                        </p>
+                      )}
+                      {event.details?.payload && (
+                        <div className="mt-2 rounded-md bg-white/80 p-3 text-xs text-slate-700">
+                          <p className="mb-1 font-medium text-slate-800">Payload</p>
+                          <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-slate-600">
+                            {formatAuditPayload(event.details.payload)}
+                          </pre>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         )}
