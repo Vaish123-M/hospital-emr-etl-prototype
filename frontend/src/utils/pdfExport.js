@@ -29,76 +29,72 @@ export async function generatePatientPDF(patient, visits, timeline) {
     return age;
   };
 
-  // Build HTML for PDF
   const htmlContent = `
-    <div style="font-family: Arial, sans-serif; color: #333;">
-      <!-- Header -->
+    <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.45;">
       <div style="border-bottom: 3px solid #0f766e; padding-bottom: 15px; margin-bottom: 20px;">
-        <h1 style="margin: 0; color: #0f766e;">PATIENT SUMMARY REPORT</h1>
-        <p style="margin: 5px 0 0 0; color: #666;">Generated on ${new Date().toLocaleString()}</p>
+        <h1 style="margin: 0; color: #0f766e;">PATIENT SUMMARY REPORT / रोगी सारांश रिपोर्ट</h1>
+        <p style="margin: 5px 0 0 0; color: #666;">Generated on / तैयार किया गया: ${new Date().toLocaleString()}</p>
       </div>
 
-      <!-- Patient Information Section -->
       <div style="margin-bottom: 25px;">
-        <h2 style="color: #0f766e; border-bottom: 2px solid #0f766e; padding-bottom: 8px;">Patient Information</h2>
+        <h2 style="color: #0f766e; border-bottom: 2px solid #0f766e; padding-bottom: 8px;">Patient Information / रोगी जानकारी</h2>
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
           <tr>
-            <td style="padding: 8px; width: 50%; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Name:</strong></td>
+            <td style="padding: 8px; width: 50%; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Name / नाम:</strong></td>
             <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;">${patient.first_name} ${patient.last_name}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #fff;"><strong>Patient ID:</strong></td>
+            <td style="padding: 8px; background-color: #fff;"><strong>Patient ID / रोगी ID:</strong></td>
             <td style="padding: 8px; background-color: #fff;">${patient.patient_id || "N/A"}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Age:</strong></td>
-            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;">${calculateAge(patient.date_of_birth)} years</td>
+            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Age / आयु:</strong></td>
+            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;">${calculateAge(patient.date_of_birth)} years / वर्ष</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #fff;"><strong>Gender:</strong></td>
+            <td style="padding: 8px; background-color: #fff;"><strong>Gender / लिंग:</strong></td>
             <td style="padding: 8px; background-color: #fff;">${patient.gender || "N/A"}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Date of Birth:</strong></td>
+            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Date of Birth / जन्म तिथि:</strong></td>
             <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;">${dateFormatter(patient.date_of_birth)}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #fff;"><strong>Blood Group:</strong></td>
+            <td style="padding: 8px; background-color: #fff;"><strong>Blood Group / रक्त समूह:</strong></td>
             <td style="padding: 8px; background-color: #fff;">${patient.blood_group || "N/A"}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Phone:</strong></td>
+            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Phone / फोन:</strong></td>
             <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;">${patient.phone_number || "N/A"}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #fff;"><strong>Email:</strong></td>
+            <td style="padding: 8px; background-color: #fff;"><strong>Email / ईमेल:</strong></td>
             <td style="padding: 8px; background-color: #fff;">${patient.email || "N/A"}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Address:</strong></td>
+            <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Address / पता:</strong></td>
             <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;">${patient.address || "N/A"}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; background-color: #fff;"><strong>Registration Date:</strong></td>
+            <td style="padding: 8px; background-color: #fff;"><strong>Registration Date / पंजीकरण तिथि:</strong></td>
             <td style="padding: 8px; background-color: #fff;">${dateFormatter(patient.registration_date)}</td>
           </tr>
         </table>
       </div>
 
-      <!-- Visit History Section -->
       <div style="margin-bottom: 25px;">
-        <h2 style="color: #0f766e; border-bottom: 2px solid #0f766e; padding-bottom: 8px;">Visit History (${visits?.length || 0} visits)</h2>
+        <h2 style="color: #0f766e; border-bottom: 2px solid #0f766e; padding-bottom: 8px;">Visit History / मुलाकात इतिहास (${visits?.length || 0})</h2>
         ${
           visits && visits.length > 0
             ? `
           <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
               <tr style="background-color: #0f766e; color: white;">
-                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Date</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Doctor</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Symptoms</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Medications</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Follow-up</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Date / तारीख</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Doctor / डॉक्टर</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Symptoms / लक्षण</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Medications / दवाइयां</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #0f766e;">Follow-up / अनुवर्ती</th>
               </tr>
             </thead>
             <tbody>
@@ -118,14 +114,13 @@ export async function generatePatientPDF(patient, visits, timeline) {
             </tbody>
           </table>
         `
-            : '<p style="color: #666; margin-top: 10px;">No visits recorded yet.</p>'
+            : '<p style="color: #666; margin-top: 10px;">No visits recorded yet. / अभी तक कोई मुलाकात दर्ज नहीं है।</p>'
         }
       </div>
 
-      <!-- Footer -->
       <div style="border-top: 1px solid #ccc; padding-top: 15px; margin-top: 30px; color: #666; font-size: 12px;">
-        <p style="margin: 0;">This report is for medical office record keeping only.</p>
-        <p style="margin: 5px 0 0 0;">© Hospital Patient Management System</p>
+        <p style="margin: 0;">This report is for medical office record keeping only. / यह रिपोर्ट केवल चिकित्सा कार्यालय रिकॉर्ड के लिए है।</p>
+        <p style="margin: 5px 0 0 0;">© Hospital Patient Management System / © अस्पताल रोगी प्रबंधन प्रणाली</p>
       </div>
     </div>
   `;

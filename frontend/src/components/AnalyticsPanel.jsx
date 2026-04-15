@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 function MetricCard({ title, value, note }) {
   return (
     <article className="rounded-xl border border-sky-100 bg-white p-4 shadow-lg">
@@ -8,12 +10,12 @@ function MetricCard({ title, value, note }) {
   );
 }
 
-function TrendChart({ points }) {
+function TrendChart({ points, t }) {
   const maxVisits = Math.max(...points.map((point) => point.visits), 1);
 
   return (
     <div className="rounded-xl border border-sky-100 bg-white p-4 shadow-lg">
-      <h3 className="mb-3 text-lg font-semibold text-slate-800">Visits Trend (Last 7 Days)</h3>
+      <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("trend")}</h3>
       <div className="grid grid-cols-7 items-end gap-2">
         {points.map((point) => {
           const heightPct = Math.max(6, Math.round((point.visits / maxVisits) * 100));
@@ -84,6 +86,7 @@ function formatFollowUpStatus(daysUntilFollowUp) {
 }
 
 export default function AnalyticsPanel({ analytics, loading, error }) {
+  const { t } = useTranslation();
   const summary = analytics?.summary || {
     total_patients: 0,
     new_today: 0,
@@ -103,32 +106,32 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
   return (
     <section className="mb-8 rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-teal-50 p-5 shadow-lg">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-800">Hospital Snapshot</h2>
-        {loading && <span className="text-xs text-slate-500">Refreshing analytics...</span>}
+        <h2 className="text-xl font-semibold text-slate-800">{t("hospital_snapshot")}</h2>
+        {loading && <span className="text-xs text-slate-500">{t("refreshing_analytics")}</span>}
       </div>
 
       {error && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard title="Total Patients" value={summary.total_patients} />
-        <MetricCard title="New Today" value={summary.new_today} />
-        <MetricCard title="Repeat Patients" value={summary.repeat_patients} />
+        <MetricCard title={t("total_patients")} value={summary.total_patients} />
+        <MetricCard title={t("new_today")} value={summary.new_today} />
+        <MetricCard title={t("repeat_patients")} value={summary.repeat_patients} />
         <MetricCard
-          title="Repeat Visit Rate"
+          title={t("repeat_visit_rate")}
           value={`${summary.repeat_visit_rate}%`}
-          note="Patients with 2+ visits"
+          note={t("patients_with_2plus_visits")}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <TrendChart points={trend} />
+          <TrendChart points={trend} t={t} />
         </div>
 
         <div className="rounded-xl border border-sky-100 bg-white p-4 shadow-lg">
-          <h3 className="mb-3 text-lg font-semibold text-slate-800">Top Symptoms</h3>
+          <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("top_symptoms")}</h3>
           {topSymptoms.length === 0 ? (
-            <p className="text-sm text-slate-500">No symptom data available yet.</p>
+            <p className="text-sm text-slate-500">{t("no_symptom_data")}</p>
           ) : (
             <ul className="space-y-2 text-sm text-slate-700">
               {topSymptoms.map((item) => (
@@ -145,9 +148,9 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
       </div>
 
       <div className="mt-4 rounded-xl border border-sky-100 bg-white p-4 shadow-lg">
-        <h3 className="mb-3 text-lg font-semibold text-slate-800">Doctor Workload</h3>
+        <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("doctor_workload")}</h3>
         {doctorWorkload.length === 0 ? (
-          <p className="text-sm text-slate-500">No doctor visit workload data available yet.</p>
+          <p className="text-sm text-slate-500">{t("no_doctor_workload")}</p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             {doctorWorkload.map((item) => (
@@ -164,35 +167,35 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
 
       <div className="mt-4 rounded-xl border border-amber-100 bg-white p-4 shadow-lg">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-slate-800">Follow-up Reminders</h3>
+          <h3 className="text-lg font-semibold text-slate-800">{t("follow_up_reminders")}</h3>
           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-            {followUpReminders.overdue_count} overdue
+            {followUpReminders.overdue_count} {t("overdue")}
           </span>
         </div>
 
         <div className="mb-4 grid gap-3 sm:grid-cols-2">
           <MetricCard
-            title="Due Soon"
+            title={t("due_soon")}
             value={followUpReminders.due_soon_count}
-            note="Follow-ups due in the next 7 days"
+            note={t("due_soon_note")}
           />
           <MetricCard
-            title="Overdue"
+            title={t("overdue")}
             value={followUpReminders.overdue_count}
-            note="Visits needing immediate follow-up"
+            note={t("overdue_note")}
           />
         </div>
 
         {followUpReminders.overdue_follow_ups.length === 0 && followUpReminders.due_soon_follow_ups.length === 0 ? (
-          <p className="text-sm text-slate-500">No follow-up reminders found yet.</p>
+          <p className="text-sm text-slate-500">{t("no_follow_up_reminders")}</p>
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
               <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-700">
-                Overdue Follow-ups
+                {t("overdue_follow_ups")}
               </h4>
               {followUpReminders.overdue_follow_ups.length === 0 ? (
-                <p className="text-sm text-slate-500">No overdue follow-ups.</p>
+                <p className="text-sm text-slate-500">{t("no_overdue_follow_ups")}</p>
               ) : (
                 <ul className="space-y-2 text-sm text-slate-700">
                   {followUpReminders.overdue_follow_ups.map((item) => (
@@ -214,10 +217,10 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
 
             <div>
               <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-teal-700">
-                Follow-ups Due Soon
+                {t("follow_ups_due_soon")}
               </h4>
               {followUpReminders.due_soon_follow_ups.length === 0 ? (
-                <p className="text-sm text-slate-500">No follow-ups due within the next 7 days.</p>
+                <p className="text-sm text-slate-500">{t("no_due_soon_follow_ups")}</p>
               ) : (
                 <ul className="space-y-2 text-sm text-slate-700">
                   {followUpReminders.due_soon_follow_ups.map((item) => (

@@ -366,12 +366,12 @@ export default function Dashboard() {
     <div className="min-h-screen bg-sky-50 px-6 py-8 animate-fade-in">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-3xl font-bold text-slate-800">Hospital Patient Dashboard</h1>
+          <h1 className="text-3xl font-bold text-slate-800">{t("dashboard_title")}</h1>
           <Link
             to="/"
             className="rounded-xl bg-white px-4 py-2 font-medium text-teal-700 shadow-lg transition-all duration-300 hover:scale-105"
           >
-            Back to Home
+            {t("back_to_home")}
           </Link>
         </div>
 
@@ -387,14 +387,14 @@ export default function Dashboard() {
             onChange={handleChange}
             onSubmit={handleSubmit}
             submitting={submitting}
+            t={t}
           />
         </div>
 
         <section className="mb-8 rounded-xl border border-sky-100 bg-white p-5 shadow-lg">
-          <h2 className="mb-3 text-xl font-semibold text-slate-800">Import EMR Data</h2>
+          <h2 className="mb-3 text-xl font-semibold text-slate-800">{t("upload_excel_title")}</h2>
           <p className="mb-4 text-sm text-slate-600">
-            Upload camp or hospital Excel records (.xlsx/.xls). The system profiles, cleans,
-            and imports patient records while keeping manual registration available.
+            {t("upload_excel_description")}
           </p>
 
           <div
@@ -407,10 +407,10 @@ export default function Dashboard() {
                 : "border-sky-200 bg-sky-50"
             }`}
           >
-            <p className="mb-3 text-sm text-slate-700">Drag and drop your Excel file here</p>
-            <p className="mb-4 text-xs text-slate-500">Accepted formats: .xlsx, .xls</p>
+            <p className="mb-3 text-sm text-slate-700">{t("drag_drop_excel")}</p>
+            <p className="mb-4 text-xs text-slate-500">{t("accepted_formats")}</p>
             <label className="inline-flex cursor-pointer items-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow transition hover:bg-slate-50">
-              Choose File
+              {t("choose_file")}
               <input
                 type="file"
                 accept=".xlsx,.xls"
@@ -419,7 +419,9 @@ export default function Dashboard() {
               />
             </label>
             {uploadFile && (
-              <p className="mt-3 text-sm text-teal-700">Selected file: {uploadFile.name}</p>
+              <p className="mt-3 text-sm text-teal-700">
+                {t("selected_file_prefix")}: {uploadFile.name}
+              </p>
             )}
           </div>
 
@@ -430,7 +432,7 @@ export default function Dashboard() {
               disabled={uploading}
               className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-70"
             >
-              {uploading ? "Uploading..." : "Upload Excel"}
+              {uploading ? t("uploading") : t("upload_excel_action")}
             </button>
             <button
               type="button"
@@ -438,15 +440,15 @@ export default function Dashboard() {
               disabled={importing || !uploadResult?.upload_id}
               className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
             >
-              {importing ? "Importing..." : "Clean and Import Data"}
+              {importing ? t("importing") : t("clean_import_action")}
             </button>
           </div>
 
           {(uploading || importing) && (
             <p className="mt-3 text-sm text-slate-600">
               {uploading
-                ? "Uploading and profiling file, please wait..."
-                : "Cleaning and importing records, please wait..."}
+                ? `${t("uploading")} ${t("loading")}`
+                : `${t("clean_import_action")} ${t("loading")}`}
             </p>
           )}
 
@@ -482,26 +484,26 @@ export default function Dashboard() {
               </div>
 
               <div className="rounded-lg border border-slate-200 p-4">
-                <h3 className="mb-3 text-lg font-semibold text-slate-800">Data Quality Report</h3>
+                <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("data_quality_report")}</h3>
                 <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
                   <p>
-                    <span className="font-semibold">Total Records:</span>{" "}
+                    <span className="font-semibold">{t("total_records")}:</span>{" "}
                     {uploadResult.data_quality_report?.total_records ?? 0}
                   </p>
                   <p>
-                    <span className="font-semibold">Invalid Rows Found:</span>{" "}
+                    <span className="font-semibold">{t("invalid_rows_found")}:</span>{" "}
                     {uploadResult.invalid_rows?.length ?? 0}
                   </p>
                   <p>
-                    <span className="font-semibold">Duplicate Phone Entries:</span>{" "}
+                    <span className="font-semibold">{t("duplicate_phone")}:</span>{" "}
                     {uploadResult.data_quality_report?.duplicate_phone_entries ?? 0}
                   </p>
                   <p>
-                    <span className="font-semibold">Duplicate Email Entries:</span>{" "}
+                    <span className="font-semibold">{t("duplicate_email")}:</span>{" "}
                     {uploadResult.data_quality_report?.duplicate_email_entries ?? 0}
                   </p>
                   <p>
-                    <span className="font-semibold">Invalid Date Formats:</span>{" "}
+                    <span className="font-semibold">{t("invalid_dates")}:</span>{" "}
                     {uploadResult.data_quality_report?.invalid_date_formats ?? 0}
                   </p>
                 </div>
@@ -510,8 +512,8 @@ export default function Dashboard() {
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-slate-50">
                       <tr>
-                        <th className="p-2">Column</th>
-                        <th className="p-2">Missing Values</th>
+                        <th className="p-2">{t("column")}</th>
+                        <th className="p-2">{t("missing_values")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -549,10 +551,10 @@ export default function Dashboard() {
                     <table className="min-w-full text-left text-xs">
                       <thead className="bg-red-100">
                         <tr>
-                          <th className="p-2">Row #</th>
-                          <th className="p-2">Name</th>
-                          <th className="p-2">Phone</th>
-                          <th className="p-2">Errors</th>
+                          <th className="p-2">{t("row_number")}</th>
+                          <th className="p-2">{t("name")}</th>
+                          <th className="p-2">{t("phone")}</th>
+                          <th className="p-2">{t("errors")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -581,7 +583,7 @@ export default function Dashboard() {
               )}
 
               <div className="rounded-lg border border-slate-200 p-4">
-                <h3 className="mb-3 text-lg font-semibold text-slate-800">Excel Preview (First 10 Rows)</h3>
+                <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("excel_preview")}</h3>
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-slate-50">
@@ -614,22 +616,22 @@ export default function Dashboard() {
 
               {importResult?.import_summary && (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <h3 className="mb-3 text-lg font-semibold text-emerald-900">Import Results</h3>
+                  <h3 className="mb-3 text-lg font-semibold text-emerald-900">{t("import_results")}</h3>
                   <div className="grid gap-2 text-sm text-emerald-950 md:grid-cols-2">
                     <p>
-                      <span className="font-semibold">Records Found:</span>{" "}
+                      <span className="font-semibold">{t("total_records")}:</span>{" "}
                       {importResult.import_summary.records_found ?? 0}
                     </p>
                     <p>
-                      <span className="font-semibold">Records Inserted:</span>{" "}
+                      <span className="font-semibold">{t("records_inserted")}:</span>{" "}
                       {importResult.import_summary.records_inserted ?? 0}
                     </p>
                     <p>
-                      <span className="font-semibold">Duplicates Removed:</span>{" "}
+                      <span className="font-semibold">{t("duplicates_removed")}:</span>{" "}
                       {importResult.import_summary.duplicates_removed ?? 0}
                     </p>
                     <p>
-                      <span className="font-semibold">Invalid Rows Skipped:</span>{" "}
+                      <span className="font-semibold">{t("invalid_rows_skipped")}:</span>{" "}
                       {importResult.import_summary.invalid_rows_skipped ?? 0}
                     </p>
                   </div>
@@ -638,7 +640,7 @@ export default function Dashboard() {
 
               {pipelineLogs.length > 0 && (
                 <div className="rounded-lg border border-slate-200 p-4">
-                  <h3 className="mb-3 text-lg font-semibold text-slate-800">ETL Logs</h3>
+                  <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("etl_logs")}</h3>
                   <div className="max-h-48 overflow-y-auto rounded-lg bg-slate-900 p-3 font-mono text-xs text-emerald-300">
                     {pipelineLogs.map((logLine, index) => (
                       <p key={`log-${index}`} className="mb-1 last:mb-0">
@@ -654,11 +656,11 @@ export default function Dashboard() {
 
         {selectedPatient && (
           <section className="mb-8 rounded-xl border border-sky-100 bg-white p-5 shadow-lg">
-            <h2 className="mb-3 text-xl font-semibold text-slate-800">Patient Details</h2>
+            <h2 className="mb-3 text-xl font-semibold text-slate-800">{t("patient_details_title")}</h2>
 
             {riskData && (
               <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                <p className="font-semibold text-slate-800">Triage Score</p>
+                <p className="font-semibold text-slate-800">{t("triage_score")}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
                     riskData.risk === "red"
@@ -669,9 +671,9 @@ export default function Dashboard() {
                   }`}>
                     {String(riskData.risk || "green").toUpperCase()}
                   </span>
-                  <span className="text-slate-600">Score: {riskData.score ?? 0}</span>
-                  <span className="text-slate-600">Age: {riskData.age ?? "-"}</span>
-                  <span className="text-slate-600">Repeat Visits: {riskData.repeat_visits ?? 0}</span>
+                  <span className="text-slate-600">{t("score")}: {riskData.score ?? 0}</span>
+                  <span className="text-slate-600">{t("age")}: {riskData.age ?? "-"}</span>
+                  <span className="text-slate-600">{t("repeat_visits")}: {riskData.repeat_visits ?? 0}</span>
                 </div>
                 {Array.isArray(riskData.reasons) && riskData.reasons.length > 0 && (
                   <ul className="mt-2 list-disc pl-5 text-slate-600">
@@ -688,30 +690,30 @@ export default function Dashboard() {
                 onClick={() => generatePatientPDF(selectedPatient, visits, timeline)}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
-                📄 Download PDF Report
+                📄 {t("download_pdf")}
               </button>
             </div>
 
             <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-              <p><span className="font-semibold">Patient ID:</span> {selectedPatient.patient_id}</p>
-              <p><span className="font-semibold">Name:</span> {selectedPatient.first_name} {selectedPatient.last_name}</p>
-              <p><span className="font-semibold">Gender:</span> {selectedPatient.gender || "-"}</p>
-              <p><span className="font-semibold">Date of Birth:</span> {selectedPatient.date_of_birth || "-"}</p>
-              <p><span className="font-semibold">Phone:</span> {selectedPatient.phone_number || "-"}</p>
-              <p><span className="font-semibold">Email:</span> {selectedPatient.email || "-"}</p>
-              <p className="md:col-span-2"><span className="font-semibold">Address:</span> {selectedPatient.address || "-"}</p>
-              <p><span className="font-semibold">Blood Group:</span> {selectedPatient.blood_group || "-"}</p>
-              <p><span className="font-semibold">Registration Date:</span> {selectedPatient.registration_date || "-"}</p>
+              <p><span className="font-semibold">{t("patient_id")}:</span> {selectedPatient.patient_id}</p>
+              <p><span className="font-semibold">{t("name")}:</span> {selectedPatient.first_name} {selectedPatient.last_name}</p>
+              <p><span className="font-semibold">{t("gender")}:</span> {selectedPatient.gender || "-"}</p>
+              <p><span className="font-semibold">{t("date_of_birth")}:</span> {selectedPatient.date_of_birth || "-"}</p>
+              <p><span className="font-semibold">{t("phone")}:</span> {selectedPatient.phone_number || "-"}</p>
+              <p><span className="font-semibold">{t("email")}:</span> {selectedPatient.email || "-"}</p>
+              <p className="md:col-span-2"><span className="font-semibold">{t("address")}:</span> {selectedPatient.address || "-"}</p>
+              <p><span className="font-semibold">{t("blood_group")}:</span> {selectedPatient.blood_group || "-"}</p>
+              <p><span className="font-semibold">{t("registration_date")}:</span> {selectedPatient.registration_date || "-"}</p>
             </div>
 
             <div className="mt-6">
-              <h3 className="mb-3 text-lg font-semibold text-slate-800">Add Visit</h3>
+              <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("visit_information")}</h3>
               <form onSubmit={handleVisitSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <input
                   name="doctor_name"
                   value={visitForm.doctor_name}
                   onChange={handleVisitChange}
-                  placeholder="Doctor Name"
+                  placeholder={t("doctor_name")}
                   className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500"
                   required
                 />
@@ -728,13 +730,13 @@ export default function Dashboard() {
                   disabled={visitSubmitting}
                   className="rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white transition hover:bg-teal-700 disabled:opacity-70"
                 >
-                  {visitSubmitting ? "Saving..." : "Save Visit"}
+                  {visitSubmitting ? t("saving_visit") : t("save_visit")}
                 </button>
                 <textarea
                   name="symptoms"
                   value={visitForm.symptoms}
                   onChange={handleVisitChange}
-                  placeholder="Symptoms / Notes"
+                  placeholder={t("symptoms")}
                   className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500 md:col-span-3"
                   rows={3}
                 />
@@ -742,7 +744,7 @@ export default function Dashboard() {
                   name="medications"
                   value={visitForm.medications}
                   onChange={handleVisitChange}
-                  placeholder="Medications"
+                  placeholder={t("medications")}
                   className="rounded-lg border border-sky-200 p-2 outline-none focus:border-sky-500 md:col-span-2"
                   rows={2}
                 />
@@ -757,25 +759,25 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-6">
-              <h3 className="mb-3 text-lg font-semibold text-slate-800">Visit History</h3>
+              <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("visit_history_title")}</h3>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="min-w-full text-left text-sm">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="p-2">Visit ID</th>
-                      <th className="p-2">Date</th>
-                      <th className="p-2">Doctor</th>
-                      <th className="p-2">Symptoms</th>
+                      <th className="p-2">{t("visit_id")}</th>
+                      <th className="p-2">{t("visit_date")}</th>
+                      <th className="p-2">{t("doctor_name")}</th>
+                      <th className="p-2">{t("symptoms")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {visitLoading ? (
                       <tr>
-                        <td className="border-t p-2" colSpan={4}>Loading visit history...</td>
+                        <td className="border-t p-2" colSpan={4}>{t("loading_visit_history")}</td>
                       </tr>
                     ) : visits.length === 0 ? (
                       <tr>
-                        <td className="border-t p-2" colSpan={4}>No visits recorded yet.</td>
+                        <td className="border-t p-2" colSpan={4}>{t("no_visits_recorded")}</td>
                       </tr>
                     ) : (
                       visits.map((visit) => (
@@ -793,10 +795,10 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-6">
-              <h3 className="mb-3 text-lg font-semibold text-slate-800">Patient Timeline</h3>
+              <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("patient_timeline")}</h3>
               <div className="space-y-3">
                 {timeline.length === 0 ? (
-                  <p className="text-sm text-slate-500">No timeline events available.</p>
+                  <p className="text-sm text-slate-500">{t("no_data")}</p>
                 ) : (
                   timeline.map((event, idx) => (
                     <article key={`${event.event_type}-${idx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -815,9 +817,9 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-6">
-              <h3 className="mb-3 text-lg font-semibold text-slate-800">Audit Trail</h3>
+              <h3 className="mb-3 text-lg font-semibold text-slate-800">{t("audit_trail")}</h3>
               {auditEvents.length === 0 ? (
-                <p className="text-sm text-slate-500">No audit events recorded for this patient yet.</p>
+                <p className="text-sm text-slate-500">{t("no_data")}</p>
               ) : (
                 <div className="space-y-3">
                   {auditEvents.map((event, idx) => (
@@ -831,12 +833,12 @@ export default function Dashboard() {
                       </div>
                       {event.details?.changed_by && (
                         <p className="text-amber-900">
-                          <span className="font-medium">Changed by:</span> {event.details.changed_by}
+                          <span className="font-medium">{t("changed_by")}:</span> {event.details.changed_by}
                         </p>
                       )}
                       {event.details?.payload && (
                         <div className="mt-2 rounded-md bg-white/80 p-3 text-xs text-slate-700">
-                          <p className="mb-1 font-medium text-slate-800">Payload</p>
+                          <p className="mb-1 font-medium text-slate-800">{t("audit_payload")}</p>
                           <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-slate-600">
                             {formatAuditPayload(event.details.payload)}
                           </pre>

@@ -5,33 +5,33 @@ function formatDate(value) {
   return parsed.toLocaleDateString();
 }
 
-export default function PatientTable({ patients, loading, onViewDetails }) {
+export default function PatientTable({ patients, loading, onViewDetails, t }) {
   return (
     <div className="overflow-x-auto rounded-xl bg-white shadow-lg">
       <table className="min-w-full border-collapse text-left text-sm">
         <thead className="bg-sky-50 text-slate-700">
           <tr>
-            <th className="p-3">ID</th>
-            <th className="p-3">Name</th>
-            <th className="p-3">Gender</th>
-            <th className="p-3">Phone</th>
-            <th className="p-3">Email</th>
-            <th className="p-3">Blood Group</th>
-            <th className="p-3">Registered</th>
-            <th className="p-3">Action</th>
+            <th className="p-3">{t("patient_id_short")}</th>
+            <th className="p-3">{t("name")}</th>
+            <th className="p-3">{t("gender")}</th>
+            <th className="p-3">{t("phone")}</th>
+            <th className="p-3">{t("email")}</th>
+            <th className="p-3">{t("blood_group")}</th>
+            <th className="p-3">{t("registered")}</th>
+            <th className="p-3">{t("action")}</th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr>
               <td className="border-t p-3" colSpan={8}>
-                Loading patients...
+                {t("loading_patients")}
               </td>
             </tr>
           ) : patients.length === 0 ? (
             <tr>
               <td className="border-t p-3" colSpan={8}>
-                No patients available.
+                {t("no_patients")}
               </td>
             </tr>
           ) : (
@@ -50,7 +50,7 @@ export default function PatientTable({ patients, loading, onViewDetails }) {
                     onClick={() => onViewDetails(patient.patient_id)}
                     className="rounded-lg bg-sky-100 px-3 py-1 font-medium text-sky-800 transition hover:bg-sky-200"
                   >
-                    View
+                    {t("view")}
                   </button>
                 </td>
               </tr>
