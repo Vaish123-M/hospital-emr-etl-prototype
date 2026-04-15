@@ -309,52 +309,82 @@ def clean_and_import_excel(file_path: Path) -> dict:
 
 def validate_and_get_invalid_rows(raw_df: pd.DataFrame) -> tuple[list[dict], pd.DataFrame]:
     """Validate rows and return invalid rows with detailed error messages."""
-    invalid_rows = []
-    valid_indexes = []
-    
+    invalid_rows: list[dict] = []
+    valid_indexes: list[int] = []
+
     df = raw_df.copy()
-    
+
     for column in CANONICAL_COLUMNS:
         if column not in df.columns:
             df[column] = None
-    
+
+    def normalize_phone(value: Any) -> str:
+        return "" if value is None else str(value).replace("nan", "").replace("None", "")
+
+    def normalize_email(value: Any) -> str:
+        return "" if value is None else str(value).strip().lower()
+
+    phone_counts: dict[str, int] = {}
+    email_counts: dict[str, int] = {}
+
+    for raw_phone in df["phone_number"]:
+        phone = normalize_phone(raw_phone)
+        phone = "".join(character for character in phone if character.isdigit())
+        if phone:
+            phone_counts[phone] = phone_counts.get(phone, 0) + 1
+
+    for raw_email in df["email"]:
+        email = normalize_email(raw_email)
+        if email:
+            email_counts[email] = email_counts.get(email, 0) + 1
+
     # Normalize and clean values
     df["first_name"] = df["first_name"].astype(str).str.strip()
     df["last_name"] = df["last_name"].astype(str).str.strip()
-    
+
     full_name_parts = df["first_name"].str.split(n=1, expand=True)
     df["first_name"] = full_name_parts[0]
     if 1 in full_name_parts.columns:
         missing_last_name = df["last_name"].isna() | (df["last_name"] == "")
         df.loc[missing_last_name, "last_name"] = full_name_parts[1]
-    
+
     df["first_name"] = df["first_name"].replace({"": None, "nan": None, "None": None})
     df["last_name"] = df["last_name"].replace({"": None, "nan": None, "None": None})
     df["last_name"] = df["last_name"].fillna("Unknown")
-    
+
     df["phone_number"] = df["phone_number"].astype(str).str.replace(r"\D", "", regex=True)
     df["email"] = df["email"].astype(str).str.strip().str.lower()
     df["date_of_birth"] = pd.to_datetime(df["date_of_birth"], dayfirst=True, errors="coerce")
-    
+
     for idx, row in df.iterrows():
         errors = []
-        
+
         # Required field validation
         if not row.get("first_name") or str(row.get("first_name")).strip() in ["", "nan", "None"]:
             errors.append("Missing first name")
         if not row.get("last_name") or str(row.get("last_name")).strip() in ["", "nan", "None"]:
             errors.append("Missing last name")
-        
+
         # Phone number validation
         phone = str(row.get("phone_number", "")).strip()
         if not phone or len(phone) < 5:
             errors.append("Invalid or missing phone number (min 5 digits)")
+        elif phone_counts.get(phone, 0) > 1:
+            errors.append("Duplicate phone number")
+
+        # Email validation
+        email = str(row.get("email", "")).strip().lower()
+        if email and email_counts.get(email, 0) > 1:
+            errors.append("Duplicate email address")
+
+        if email and ("@" not in email or email.startswith("@") or email.endswith("@")):
+            errors.append("Invalid email format")
         
         # Date of birth validation
         dob = row.get("date_of_birth")
         if pd.isna(dob):
             errors.append("Invalid or missing date of birth")
-        
+
         if errors:
             invalid_rows.append({
                 "row_number": idx + 2,  # Excel row number (header is row 1)
@@ -363,7 +393,7 @@ def validate_and_get_invalid_rows(raw_df: pd.DataFrame) -> tuple[list[dict], pd.
             })
         else:
             valid_indexes.append(idx)
-    
+
     valid_df = df.iloc[valid_indexes].copy() if valid_indexes else df.iloc[0:0].copy()
     return invalid_rows, valid_df
 

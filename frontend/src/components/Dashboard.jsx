@@ -489,6 +489,10 @@ export default function Dashboard() {
                     {uploadResult.data_quality_report?.total_records ?? 0}
                   </p>
                   <p>
+                    <span className="font-semibold">Invalid Rows Found:</span>{" "}
+                    {uploadResult.invalid_rows?.length ?? 0}
+                  </p>
+                  <p>
                     <span className="font-semibold">Duplicate Phone Entries:</span>{" "}
                     {uploadResult.data_quality_report?.duplicate_phone_entries ?? 0}
                   </p>
