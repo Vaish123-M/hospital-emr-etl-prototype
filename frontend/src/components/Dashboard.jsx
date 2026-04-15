@@ -856,6 +856,7 @@ export default function Dashboard() {
           patients={patients}
           loading={loading}
           onViewDetails={handleViewPatientDetails}
+          t={t}
         />
       </div>
     </div>
