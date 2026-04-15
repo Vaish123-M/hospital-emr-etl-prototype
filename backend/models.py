@@ -146,6 +146,21 @@ LIMIT 5;
 """
 
 
+SELECT_FOLLOW_UP_REMINDERS = """
+SELECT
+    v.visit_id,
+    v.patient_id,
+    CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
+    v.doctor_name,
+    v.follow_up_date,
+    DATEDIFF(v.follow_up_date, CURDATE()) AS days_until_follow_up
+FROM visits v
+LEFT JOIN patients p ON p.patient_id = v.patient_id
+WHERE v.follow_up_date IS NOT NULL
+ORDER BY v.follow_up_date ASC, v.visit_id DESC;
+"""
+
+
 CREATE_AUDIT_LOGS_TABLE = """
 CREATE TABLE IF NOT EXISTS audit_logs (
     audit_id INT AUTO_INCREMENT PRIMARY KEY,

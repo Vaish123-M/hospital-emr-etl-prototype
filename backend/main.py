@@ -21,6 +21,7 @@ from .models import (
     PATIENT_COLUMNS,
     SELECT_AUDIT_BY_PATIENT_ID,
     SELECT_DOCTOR_WORKLOAD,
+    SELECT_FOLLOW_UP_REMINDERS,
     SELECT_PATIENT_OVERVIEW_COUNTS,
     SELECT_ALL_PATIENTS,
     SELECT_PATIENT_BY_ID,
@@ -84,6 +85,34 @@ def build_visit_trend(trend_rows):
             }
         )
     return trend
+
+
+def build_follow_up_reminders(reminder_rows):
+    overdue_follow_ups = []
+    due_soon_follow_ups = []
+
+    for row in reminder_rows:
+        days_until_follow_up = int(row[5] or 0)
+        reminder = {
+            "visit_id": int(row[0]),
+            "patient_id": int(row[1]),
+            "patient_name": row[2] or "Unknown patient",
+            "doctor_name": row[3] or "Unknown",
+            "follow_up_date": row[4].isoformat() if hasattr(row[4], "isoformat") else str(row[4]),
+            "days_until_follow_up": days_until_follow_up,
+        }
+
+        if days_until_follow_up < 0:
+            overdue_follow_ups.append(reminder)
+        elif days_until_follow_up <= 7:
+            due_soon_follow_ups.append(reminder)
+
+    return {
+        "overdue_count": len(overdue_follow_ups),
+        "due_soon_count": len(due_soon_follow_ups),
+        "overdue_follow_ups": overdue_follow_ups[:5],
+        "due_soon_follow_ups": due_soon_follow_ups[:5],
+    }
 
 
 def calculate_age(dob_value):
@@ -233,6 +262,9 @@ def analytics_overview():
             for row in cursor.fetchall()
         ]
 
+        cursor.execute(SELECT_FOLLOW_UP_REMINDERS)
+        follow_up_reminders = build_follow_up_reminders(cursor.fetchall())
+
         return {
             "summary": {
                 "total_patients": total_patients,
@@ -243,6 +275,7 @@ def analytics_overview():
             "visit_trend": visit_trend,
             "top_symptoms": top_symptoms,
             "doctor_workload": doctor_workload,
+            "follow_up_reminders": follow_up_reminders,
         }
     except Error as exc:
         if getattr(exc, "errno", None) == 2003:

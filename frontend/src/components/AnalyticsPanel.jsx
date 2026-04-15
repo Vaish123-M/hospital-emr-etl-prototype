@@ -66,6 +66,23 @@ function normalizeWeekdayTrend(points) {
   });
 }
 
+function formatFollowUpStatus(daysUntilFollowUp) {
+  if (daysUntilFollowUp < 0) {
+    const overdueDays = Math.abs(daysUntilFollowUp);
+    return overdueDays === 1 ? "Overdue by 1 day" : `Overdue by ${overdueDays} days`;
+  }
+
+  if (daysUntilFollowUp === 0) {
+    return "Due today";
+  }
+
+  if (daysUntilFollowUp === 1) {
+    return "Due in 1 day";
+  }
+
+  return `Due in ${daysUntilFollowUp} days`;
+}
+
 export default function AnalyticsPanel({ analytics, loading, error }) {
   const summary = analytics?.summary || {
     total_patients: 0,
@@ -76,6 +93,12 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
   const trend = normalizeWeekdayTrend(analytics?.visit_trend || []);
   const topSymptoms = analytics?.top_symptoms || [];
   const doctorWorkload = analytics?.doctor_workload || [];
+  const followUpReminders = analytics?.follow_up_reminders || {
+    overdue_count: 0,
+    due_soon_count: 0,
+    overdue_follow_ups: [],
+    due_soon_follow_ups: [],
+  };
 
   return (
     <section className="mb-8 rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-teal-50 p-5 shadow-lg">
@@ -135,6 +158,84 @@ export default function AnalyticsPanel({ analytics, loading, error }) {
                 </span>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 rounded-xl border border-amber-100 bg-white p-4 shadow-lg">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-slate-800">Follow-up Reminders</h3>
+          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+            {followUpReminders.overdue_count} overdue
+          </span>
+        </div>
+
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <MetricCard
+            title="Due Soon"
+            value={followUpReminders.due_soon_count}
+            note="Follow-ups due in the next 7 days"
+          />
+          <MetricCard
+            title="Overdue"
+            value={followUpReminders.overdue_count}
+            note="Visits needing immediate follow-up"
+          />
+        </div>
+
+        {followUpReminders.overdue_follow_ups.length === 0 && followUpReminders.due_soon_follow_ups.length === 0 ? (
+          <p className="text-sm text-slate-500">No follow-up reminders found yet.</p>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-700">
+                Overdue Follow-ups
+              </h4>
+              {followUpReminders.overdue_follow_ups.length === 0 ? (
+                <p className="text-sm text-slate-500">No overdue follow-ups.</p>
+              ) : (
+                <ul className="space-y-2 text-sm text-slate-700">
+                  {followUpReminders.overdue_follow_ups.map((item) => (
+                    <li key={`overdue-${item.visit_id}`} className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">{item.patient_name}</span>
+                        <span className="text-xs font-semibold text-amber-800">
+                          {formatFollowUpStatus(item.days_until_follow_up)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Dr. {item.doctor_name} · Follow-up date: {item.follow_up_date}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-teal-700">
+                Follow-ups Due Soon
+              </h4>
+              {followUpReminders.due_soon_follow_ups.length === 0 ? (
+                <p className="text-sm text-slate-500">No follow-ups due within the next 7 days.</p>
+              ) : (
+                <ul className="space-y-2 text-sm text-slate-700">
+                  {followUpReminders.due_soon_follow_ups.map((item) => (
+                    <li key={`soon-${item.visit_id}`} className="rounded-lg border border-teal-100 bg-teal-50 px-3 py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">{item.patient_name}</span>
+                        <span className="text-xs font-semibold text-teal-800">
+                          {formatFollowUpStatus(item.days_until_follow_up)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Dr. {item.doctor_name} · Follow-up date: {item.follow_up_date}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>
