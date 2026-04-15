@@ -31,7 +31,7 @@ from .models import (
     VISIT_COLUMNS,
 )
 from .schemas import PatientCreate, PatientResponse, VisitCreate, VisitResponse
-from etl.excel_import import analyze_excel_upload, clean_and_import_excel
+from etl.excel_import import analyze_excel_upload, clean_and_import_excel, validate_and_get_invalid_rows
 
 app = FastAPI(title="Hospital Patient Management API")
 

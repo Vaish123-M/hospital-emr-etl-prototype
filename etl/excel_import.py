@@ -270,12 +270,14 @@ def analyze_excel_upload(file_path: Path) -> dict:
     logs: list[str] = []
     _log(logs, "Excel file uploaded")
 
-    _, preview_columns, preview_rows, quality_report = load_uploaded_excel(file_path)
-    _log(logs, "Data profiling completed")
+    raw_df, preview_columns, preview_rows, quality_report = load_uploaded_excel(file_path)
+    invalid_rows, _ = validate_and_get_invalid_rows(raw_df)
+    _log(logs, "Data profiling and validation completed")
 
     return {
         "preview_columns": preview_columns,
         "preview_rows": preview_rows,
+        "invalid_rows": invalid_rows,
         "data_quality_report": quality_report,
         "logs": logs,
     }
@@ -303,6 +305,67 @@ def clean_and_import_excel(file_path: Path) -> dict:
         "import_summary": import_summary,
         "logs": logs,
     }
+
+
+def validate_and_get_invalid_rows(raw_df: pd.DataFrame) -> tuple[list[dict], pd.DataFrame]:
+    """Validate rows and return invalid rows with detailed error messages."""
+    invalid_rows = []
+    valid_indexes = []
+    
+    df = raw_df.copy()
+    
+    for column in CANONICAL_COLUMNS:
+        if column not in df.columns:
+            df[column] = None
+    
+    # Normalize and clean values
+    df["first_name"] = df["first_name"].astype(str).str.strip()
+    df["last_name"] = df["last_name"].astype(str).str.strip()
+    
+    full_name_parts = df["first_name"].str.split(n=1, expand=True)
+    df["first_name"] = full_name_parts[0]
+    if 1 in full_name_parts.columns:
+        missing_last_name = df["last_name"].isna() | (df["last_name"] == "")
+        df.loc[missing_last_name, "last_name"] = full_name_parts[1]
+    
+    df["first_name"] = df["first_name"].replace({"": None, "nan": None, "None": None})
+    df["last_name"] = df["last_name"].replace({"": None, "nan": None, "None": None})
+    df["last_name"] = df["last_name"].fillna("Unknown")
+    
+    df["phone_number"] = df["phone_number"].astype(str).str.replace(r"\D", "", regex=True)
+    df["email"] = df["email"].astype(str).str.strip().str.lower()
+    df["date_of_birth"] = pd.to_datetime(df["date_of_birth"], dayfirst=True, errors="coerce")
+    
+    for idx, row in df.iterrows():
+        errors = []
+        
+        # Required field validation
+        if not row.get("first_name") or str(row.get("first_name")).strip() in ["", "nan", "None"]:
+            errors.append("Missing first name")
+        if not row.get("last_name") or str(row.get("last_name")).strip() in ["", "nan", "None"]:
+            errors.append("Missing last name")
+        
+        # Phone number validation
+        phone = str(row.get("phone_number", "")).strip()
+        if not phone or len(phone) < 5:
+            errors.append("Invalid or missing phone number (min 5 digits)")
+        
+        # Date of birth validation
+        dob = row.get("date_of_birth")
+        if pd.isna(dob):
+            errors.append("Invalid or missing date of birth")
+        
+        if errors:
+            invalid_rows.append({
+                "row_number": idx + 2,  # Excel row number (header is row 1)
+                "data": row.to_dict(),
+                "errors": errors,
+            })
+        else:
+            valid_indexes.append(idx)
+    
+    valid_df = df.iloc[valid_indexes].copy() if valid_indexes else df.iloc[0:0].copy()
+    return invalid_rows, valid_df
 
 
 def process_excel_upload(file_path: Path) -> dict:

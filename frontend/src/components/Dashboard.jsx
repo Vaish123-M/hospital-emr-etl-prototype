@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AnalyticsPanel from "./AnalyticsPanel";
 import PatientForm from "./PatientForm";
 import PatientTable from "./PatientTable";
+import LanguageSwitcher from "./LanguageSwitcher";
+import OfflineSync from "./OfflineSync";
+import {
+  savePendingPatient,
+  savePendingVisit,
+  isOnline,
+} from "../utils/offlineStorage";
+import { generatePatientPDF } from "../utils/pdfExport";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
@@ -26,6 +35,7 @@ const initialVisitForm = {
 };
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState(initialForm);
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -58,6 +68,33 @@ export default function Dashboard() {
       return detail.map((item) => item?.msg).filter(Boolean).join(" | ") || fallbackMessage;
     }
     return fallbackMessage;
+  }
+
+  function downloadErrorReport() {
+    if (!uploadResult?.invalid_rows || uploadResult.invalid_rows.length === 0) {
+      setError("No invalid rows to download.");
+      return;
+    }
+
+    const rows = uploadResult.invalid_rows;
+    let csv = "Row #,First Name,Last Name,Phone,Email,DOB,Errors\n";
+
+    rows.forEach((row) => {
+      const errors = (row.errors || []).join("; ");
+      const data = row.data || {};
+      const errorStr = `"${errors.replace(/"/g, '""')}"`;
+      csv += `${row.row_number},"${(data.first_name || "").toString().replace(/"/g, '""')}","${(data.last_name || "").toString().replace(/"/g, '""')}","${(data.phone_number || "").toString().replace(/"/g, '""')}","${(data.email || "").toString().replace(/"/g, '""')}","${(data.date_of_birth || "").toString().replace(/"/g, '""')}",${errorStr}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `error-report-${new Date().getTime()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   }
 
   async function fetchPatients() {
@@ -122,24 +159,35 @@ export default function Dashboard() {
     setSubmitting(true);
     setError("");
 
+    const patientData = {
+      first_name: formData.first_name,
+      last_name: formData.last_name,
+      gender: formData.gender || null,
+      phone_number: formData.phone_number,
+      email: formData.email || null,
+      address: formData.address || null,
+      blood_group: formData.blood_group || null,
+    };
+
     try {
-      await axios.post(`${API_BASE_URL}/patients`, {
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        gender: formData.gender || null,
-        phone_number: formData.phone_number,
-        email: formData.email || null,
-        address: formData.address || null,
-        blood_group: formData.blood_group || null,
-      });
+      await axios.post(`${API_BASE_URL}/patients`, patientData);
       setFormData(initialForm);
       setSelectedPatient(null);
       setVisits([]);
       await fetchPatients();
       await fetchAnalytics();
     } catch (submitError) {
-      const detail = submitError?.response?.data?.detail;
-      setError(detail || "Could not add patient.");
+      if (!isOnline()) {
+        // Save locally when offline
+        savePendingPatient(patientData);
+        setError(
+          "No internet connection. Patient saved locally and will sync when online."
+        );
+        setFormData(initialForm);
+      } else {
+        const detail = submitError?.response?.data?.detail;
+        setError(detail || "Could not add patient.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -157,15 +205,17 @@ export default function Dashboard() {
     setVisitSubmitting(true);
     setError("");
 
+    const visitData = {
+      patient_id: selectedPatient.patient_id,
+      doctor_name: visitForm.doctor_name,
+      symptoms: visitForm.symptoms || null,
+      medications: visitForm.medications || null,
+      follow_up_date: visitForm.follow_up_date || null,
+      visit_date: visitForm.visit_date,
+    };
+
     try {
-      await axios.post(`${API_BASE_URL}/visits`, {
-        patient_id: selectedPatient.patient_id,
-        doctor_name: visitForm.doctor_name,
-        symptoms: visitForm.symptoms || null,
-        medications: visitForm.medications || null,
-        follow_up_date: visitForm.follow_up_date || null,
-        visit_date: visitForm.visit_date,
-      });
+      await axios.post(`${API_BASE_URL}/visits`, visitData);
 
       const visitsResponse = await axios.get(
         `${API_BASE_URL}/patients/${selectedPatient.patient_id}/visits`
@@ -182,8 +232,17 @@ export default function Dashboard() {
       setVisitForm(initialVisitForm);
       await fetchAnalytics();
     } catch (submitError) {
-      const detail = submitError?.response?.data?.detail;
-      setError(detail || "Could not add visit.");
+      if (!isOnline()) {
+        // Save locally when offline
+        savePendingVisit(visitData, selectedPatient.patient_id);
+        setError(
+          "No internet connection. Visit saved locally and will sync when online."
+        );
+        setVisitForm(initialVisitForm);
+      } else {
+        const detail = submitError?.response?.data?.detail;
+        setError(detail || "Could not add visit.");
+      }
     } finally {
       setVisitSubmitting(false);
     }
@@ -304,6 +363,8 @@ export default function Dashboard() {
         </div>
 
         {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
+        <OfflineSync />
 
         <AnalyticsPanel analytics={analytics} loading={analyticsLoading} error={analyticsError} />
 
@@ -450,6 +511,58 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {(uploadResult?.invalid_rows?.length ?? 0) > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-red-900">
+                      ⚠️ Invalid Rows ({uploadResult.invalid_rows.length})
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={downloadErrorReport}
+                      className="rounded-lg bg-red-600 px-3 py-1 text-sm font-semibold text-white transition hover:bg-red-700"
+                    >
+                      Download Error Report
+                    </button>
+                  </div>
+                  <p className="mb-3 text-sm text-red-800">
+                    These rows contain errors and will not be imported. Review the errors below and fix your data.
+                  </p>
+                  <div className="overflow-x-auto rounded-lg border border-red-200">
+                    <table className="min-w-full text-left text-xs">
+                      <thead className="bg-red-100">
+                        <tr>
+                          <th className="p-2">Row #</th>
+                          <th className="p-2">Name</th>
+                          <th className="p-2">Phone</th>
+                          <th className="p-2">Errors</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uploadResult.invalid_rows.map((row, idx) => (
+                          <tr key={idx} className="border-t border-red-200 bg-red-50">
+                            <td className="p-2 font-semibold text-red-900">{row.row_number}</td>
+                            <td className="p-2">
+                              {row.data?.first_name} {row.data?.last_name}
+                            </td>
+                            <td className="p-2">{row.data?.phone_number || "-"}</td>
+                            <td className="p-2">
+                              <div className="space-y-1">
+                                {row.errors?.map((error, eIdx) => (
+                                  <div key={eIdx} className="text-red-700">
+                                    • {error}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-lg border border-slate-200 p-4">
                 <h3 className="mb-3 text-lg font-semibold text-slate-800">Excel Preview (First 10 Rows)</h3>
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -552,6 +665,15 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => generatePatientPDF(selectedPatient, visits, timeline)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                📄 Download PDF Report
+              </button>
+            </div>
 
             <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
               <p><span className="font-semibold">Patient ID:</span> {selectedPatient.patient_id}</p>
