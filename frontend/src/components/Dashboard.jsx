@@ -57,6 +57,10 @@ export default function Dashboard() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [importStatus, setImportStatus] = useState("");
+  const [reportName, setReportName] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [reportData, setReportData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState("");
@@ -68,6 +72,104 @@ export default function Dashboard() {
       return detail.map((item) => item?.msg).filter(Boolean).join(" | ") || fallbackMessage;
     }
     return fallbackMessage;
+  }
+
+  function getDiagnosisFromVisits(visitsList) {
+    if (!visitsList || visitsList.length === 0) {
+      return "No diagnosis data available.";
+    }
+
+    const sortedVisits = [...visitsList].sort((a, b) => {
+      const aDate = new Date(a.visit_date || "").getTime();
+      const bDate = new Date(b.visit_date || "").getTime();
+      return bDate - aDate;
+    });
+
+    const latestVisit = sortedVisits.find((visit) => visit.symptoms || visit.medications) || sortedVisits[0];
+    if (latestVisit.symptoms) {
+      return latestVisit.symptoms;
+    }
+    if (latestVisit.medications) {
+      return `Medications: ${latestVisit.medications}`;
+    }
+    return "No diagnosis data available.";
+  }
+
+  function getPatientNameKey(patient) {
+    return `${patient.first_name || ""} ${patient.last_name || ""}`.trim();
+  }
+
+  async function handleGetReportByName(event) {
+    event.preventDefault();
+    const searchValue = reportName.trim();
+    if (!searchValue) {
+      setReportError("Please enter a patient name.");
+      setReportData(null);
+      return;
+    }
+
+    if (patients.length === 0) {
+      setReportError("No patients are loaded yet. Please refresh the page.");
+      setReportData(null);
+      return;
+    }
+
+    const lowerSearch = searchValue.toLowerCase();
+    const matches = patients.filter((patient) =>
+      getPatientNameKey(patient).toLowerCase().includes(lowerSearch)
+    );
+
+    if (matches.length === 0) {
+      setReportError(`No patient found matching "${searchValue}".`);
+      setReportData(null);
+      return;
+    }
+
+    let selected = matches[0];
+    if (matches.length > 1) {
+      const exactMatch = matches.find(
+        (patient) => getPatientNameKey(patient).toLowerCase() === lowerSearch
+      );
+      if (exactMatch) {
+        selected = exactMatch;
+      } else {
+        setReportError("Multiple patients match that name. Please enter a more specific name.");
+        setReportData(null);
+        return;
+      }
+    }
+
+    setReportError("");
+    setReportLoading(true);
+    try {
+      const [patientResponse, visitsResponse, timelineResponse] = await Promise.all([
+        axios.get(`${API_BASE_URL}/patients/${selected.patient_id}`),
+        axios.get(`${API_BASE_URL}/patients/${selected.patient_id}/visits`),
+        axios.get(`${API_BASE_URL}/patients/${selected.patient_id}/timeline`),
+      ]);
+
+      const reportPatient = patientResponse.data;
+      const reportVisits = visitsResponse.data;
+      const reportTimeline = timelineResponse.data?.timeline || [];
+      const diagnosis = getDiagnosisFromVisits(reportVisits);
+
+      setReportData({
+        patient: reportPatient,
+        visits: reportVisits,
+        timeline: reportTimeline,
+        diagnosis,
+      });
+    } catch (searchError) {
+      setReportError("Could not load the report for that patient.");
+      setReportData(null);
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
+  function handleReportNameChange(event) {
+    setReportName(event.target.value);
+    setReportError("");
   }
 
   function downloadErrorReport() {
@@ -392,6 +494,57 @@ export default function Dashboard() {
         </div>
 
         <section className="mb-8 rounded-xl border border-sky-100 bg-white p-5 shadow-lg">
+          <h2 className="mb-3 text-xl font-semibold text-slate-800">{t("get_report_title")}</h2>
+          <form onSubmit={handleGetReportByName} className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <input
+              type="text"
+              name="reportName"
+              value={reportName}
+              onChange={handleReportNameChange}
+              placeholder={t("enter_patient_name_for_report")}
+              className="rounded-xl border border-sky-200 p-3 outline-none transition-all focus:border-sky-500"
+            />
+            <button
+              type="submit"
+              disabled={reportLoading}
+              className="rounded-xl bg-teal-600 px-4 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {reportLoading ? t("loading") : t("get_report")}
+            </button>
+          </form>
+          {reportError && (
+            <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{reportError}</p>
+          )}
+          {reportData && (
+            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-800">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">{t("patient_report_for")}</h3>
+                  <p className="text-sm text-slate-600">{getPatientNameKey(reportData.patient)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => generatePatientPDF(reportData.patient, reportData.visits, reportData.timeline, reportData.diagnosis)}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  📄 {t("download_pdf")}
+                </button>
+              </div>
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
+                <p><span className="font-semibold">{t("patient_id")}:</span> {reportData.patient.patient_id}</p>
+                <p><span className="font-semibold">{t("phone")}:</span> {reportData.patient.phone_number || "-"}</p>
+                <p><span className="font-semibold">{t("email")}:</span> {reportData.patient.email || "-"}</p>
+                <p><span className="font-semibold">{t("registration_date")}:</span> {reportData.patient.registration_date || "-"}</p>
+              </div>
+              <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
+                <p className="font-semibold text-slate-800">{t("diagnosis")}:</p>
+                <p className="mt-2 text-sm text-slate-700">{reportData.diagnosis}</p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-xl border border-sky-100 bg-white p-5 shadow-lg">
           <h2 className="mb-3 text-xl font-semibold text-slate-800">{t("upload_excel_title")}</h2>
           <p className="mb-4 text-sm text-slate-600">
             {t("upload_excel_description")}
@@ -685,9 +838,9 @@ export default function Dashboard() {
               </div>
             )}
 
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
-                onClick={() => generatePatientPDF(selectedPatient, visits, timeline)}
+                onClick={() => generatePatientPDF(selectedPatient, visits, timeline, getDiagnosisFromVisits(visits))}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
                 📄 {t("download_pdf")}

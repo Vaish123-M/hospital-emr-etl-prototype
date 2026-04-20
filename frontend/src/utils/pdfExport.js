@@ -2,7 +2,7 @@
  * PDF export utilities for patient summaries
  */
 
-export async function generatePatientPDF(patient, visits, timeline) {
+export async function generatePatientPDF(patient, visits, timeline, diagnosis = "N/A") {
   // Dynamically import html2pdf to avoid breaking the build
   const html2pdf = (await import("html2pdf.js")).default;
 
@@ -58,6 +58,10 @@ export async function generatePatientPDF(patient, visits, timeline) {
           <tr>
             <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;"><strong>Date of Birth / जन्म तिथि:</strong></td>
             <td style="padding: 8px; background-color: #f0f9f8; border: 1px solid #e0f2f1;">${dateFormatter(patient.date_of_birth)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; background-color: #fff;"><strong>Diagnosis / निदान:</strong></td>
+            <td style="padding: 8px; background-color: #fff;">${diagnosis || "N/A"}</td>
           </tr>
           <tr>
             <td style="padding: 8px; background-color: #fff;"><strong>Blood Group / रक्त समूह:</strong></td>
