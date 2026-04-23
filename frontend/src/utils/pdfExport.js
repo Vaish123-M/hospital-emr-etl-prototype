@@ -6,6 +6,13 @@ export async function generatePatientPDF(patient, visits, timeline, diagnosis = 
   // Dynamically import html2pdf to avoid breaking the build
   const html2pdf = (await import("html2pdf.js")).default;
 
+  const getPatientName = (record) => {
+    const first = record?.first_name || "";
+    const last = record?.last_name || "";
+    const fullName = `${first} ${last}`.trim();
+    return fullName || "Unknown Patient";
+  };
+
   // Format dates
   const dateFormatter = (date) => {
     if (!date) return "N/A";
@@ -84,6 +91,12 @@ export async function generatePatientPDF(patient, visits, timeline, diagnosis = 
             <td style="padding: 8px; background-color: #fff;">${dateFormatter(patient.registration_date)}</td>
           </tr>
         </table>
+        <div style="margin-top: 12px; padding: 10px 12px; background-color: #eff6ff; border-left: 4px solid #2563eb; border-radius: 6px;">
+          <p style="margin: 0; color: #1e3a8a; font-size: 14px;">
+            This patient, ${getPatientName(patient)}, is diagnosed with the following:
+          </p>
+          <p style="margin: 6px 0 0 0; color: #1f2937;">${diagnosis || "N/A"}</p>
+        </div>
       </div>
 
       <div style="margin-bottom: 25px;">

@@ -122,6 +122,7 @@
   "enter_patient_name_for_report": "Enter patient name for report",
   "patient_report_for": "Patient Report",
   "diagnosis": "Diagnosis",
+  "diagnosis_summary_sentence": "This patient, {{name}}, is diagnosed with the following:",
   "follow_up_reminders": "Follow-up Reminders",
   "due_soon": "Due Soon",
   "overdue": "Overdue",

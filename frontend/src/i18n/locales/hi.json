@@ -122,6 +122,7 @@
   "enter_patient_name_for_report": "रिपोर्ट के लिए रोगी का नाम दर्ज करें",
   "patient_report_for": "रोगी रिपोर्ट",
   "diagnosis": "निदान",
+  "diagnosis_summary_sentence": "यह रोगी, {{name}}, निम्नलिखित से निदानित है:",
   "follow_up_reminders": "अनुवर्ती अनुस्मारक",
   "due_soon": "जल्द देय",
   "overdue": "अतिदेय",

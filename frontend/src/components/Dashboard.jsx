@@ -99,6 +99,13 @@ export default function Dashboard() {
     return `${patient.first_name || ""} ${patient.last_name || ""}`.trim();
   }
 
+  function getDisplayPatientName(patient, fallbackName = "") {
+    const fullName = getPatientNameKey(patient);
+    if (fullName) return fullName;
+    if (fallbackName) return fallbackName;
+    return "Unknown Patient";
+  }
+
   async function handleGetReportByName(event) {
     event.preventDefault();
     const searchValue = reportName.trim();
@@ -158,6 +165,7 @@ export default function Dashboard() {
         visits: reportVisits,
         timeline: reportTimeline,
         diagnosis,
+        searchedName: searchValue,
       });
     } catch (searchError) {
       setReportError("Could not load the report for that patient.");
@@ -520,7 +528,9 @@ export default function Dashboard() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold text-slate-800">{t("patient_report_for")}</h3>
-                  <p className="text-sm text-slate-600">{getPatientNameKey(reportData.patient)}</p>
+                  <p className="text-sm text-slate-600">
+                    {getDisplayPatientName(reportData.patient, reportData.searchedName)}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -538,6 +548,11 @@ export default function Dashboard() {
               </div>
               <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
                 <p className="font-semibold text-slate-800">{t("diagnosis")}:</p>
+                <p className="mt-2 text-sm text-slate-700">
+                  {t("diagnosis_summary_sentence", {
+                    name: getDisplayPatientName(reportData.patient, reportData.searchedName),
+                  })}
+                </p>
                 <p className="mt-2 text-sm text-slate-700">{reportData.diagnosis}</p>
               </div>
             </div>
