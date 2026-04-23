@@ -15,7 +15,11 @@ def get_db_config() -> dict:
 
 
 def get_connection():
-    return mysql.connector.connect(**get_db_config())
+    try:
+        return mysql.connector.connect(**get_db_config())
+    except Error as e:
+        print("Database connection failed:", e)
+        return None
 
 
 def check_connection() -> bool:
