@@ -66,10 +66,20 @@ export default function Dashboard() {
   const [analyticsError, setAnalyticsError] = useState("");
 
   function extractApiError(error, fallbackMessage) {
+    const status = error?.response?.status;
     const detail = error?.response?.data?.detail;
     if (typeof detail === "string") return detail;
     if (Array.isArray(detail)) {
       return detail.map((item) => item?.msg).filter(Boolean).join(" | ") || fallbackMessage;
+    }
+    if (status === 413) {
+      return "The selected file is too large to upload. Please use a smaller file or increase server upload limits.";
+    }
+    if (status === 404) {
+      return "Upload endpoint not found. Verify backend routing and API base URL settings.";
+    }
+    if (!error?.response) {
+      return "Could not reach the server. Check that backend is running and API URL is correct.";
     }
     return fallbackMessage;
   }
