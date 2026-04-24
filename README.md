@@ -381,3 +381,57 @@ See [docs/data_mapping.md](docs/data_mapping.md) for the full Excel column to da
 
 For visit-history ingestion sheet format, see [docs/visits_sheet_template.md](docs/visits_sheet_template.md) and sample file [sample_data/visits_template.csv](sample_data/visits_template.csv).
 
+## 8) Deployment Readiness Checklist
+
+Before deploying to cloud:
+
+- Set backend DB env vars (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`)
+- Set backend CORS env var (`CORS_ORIGINS`) with your deployed frontend URL
+- Prefer frontend API base as `/api` and use reverse proxy in the frontend host
+- Ensure your frontend host supports SPA rewrite to `index.html`
+
+Reference templates:
+
+- Backend env template: `backend/.env.example`
+- Frontend env template: `frontend/.env.example`
+
+## 9) Full Stack with Docker (MySQL + FastAPI + Frontend)
+
+This repository now includes:
+
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+- `frontend/nginx.conf`
+- `docker-compose.full.yml`
+
+Run everything together:
+
+```bash
+docker compose -f docker-compose.full.yml up --build -d
+```
+
+Open:
+
+- Frontend: `http://localhost:5173`
+- Backend API docs: `http://localhost:8000/docs`
+- MySQL: `localhost:3306`
+
+The frontend container proxies `/api/*` to backend, so app API calls work from the frontend URL without exposing backend URL to the browser.
+
+Stop stack:
+
+```bash
+docker compose -f docker-compose.full.yml down
+```
+
+Stop and remove DB volume:
+
+```bash
+docker compose -f docker-compose.full.yml down -v
+```
+
+Notes:
+
+- The existing `docker-compose.yml` is still a DB-only setup.
+- The new `docker-compose.full.yml` is for complete app deployment/testing.
+

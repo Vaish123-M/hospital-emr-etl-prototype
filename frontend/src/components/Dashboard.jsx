@@ -14,7 +14,7 @@ import {
 } from "../utils/offlineStorage";
 import { generatePatientPDF } from "../utils/pdfExport";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 const initialForm = {
   first_name: "",
@@ -106,6 +106,26 @@ export default function Dashboard() {
     return "Unknown Patient";
   }
 
+  function normalizeSearchText(value) {
+    return (value || "").toString().toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  function findMatchingPatients(searchValue, patientList) {
+    const normalizedSearch = normalizeSearchText(searchValue);
+    if (!normalizedSearch) return [];
+
+    return (patientList || []).filter((patient) => {
+      const first = normalizeSearchText(patient?.first_name);
+      const last = normalizeSearchText(patient?.last_name);
+      const full = normalizeSearchText(`${first} ${last}`);
+      return (
+        full.includes(normalizedSearch)
+        || first.includes(normalizedSearch)
+        || last.includes(normalizedSearch)
+      );
+    });
+  }
+
   async function handleGetReportByName(event) {
     event.preventDefault();
     const searchValue = reportName.trim();
@@ -121,12 +141,27 @@ export default function Dashboard() {
       return;
     }
 
-    const lowerSearch = searchValue.toLowerCase();
-    const matches = patients.filter((patient) =>
-      getPatientNameKey(patient).toLowerCase().includes(lowerSearch)
-    );
+    let candidatePatients = patients;
+    let matches = findMatchingPatients(searchValue, candidatePatients);
+
+    // Refresh once from backend to avoid stale UI state after imports.
+    if (matches.length === 0) {
+      try {
+        const patientListResponse = await axios.get(`${API_BASE_URL}/patients`);
+        candidatePatients = patientListResponse.data || [];
+        setPatients(candidatePatients);
+        matches = findMatchingPatients(searchValue, candidatePatients);
+      } catch {
+        // Keep existing behavior below if refresh fails.
+      }
+    }
 
     if (matches.length === 0) {
+      if (uploadResult?.upload_id && !importResult) {
+        setReportError("Excel is uploaded but not imported yet. Click Clean and Import Data, then try again.");
+        setReportData(null);
+        return;
+      }
       setReportError(`No patient found matching "${searchValue}".`);
       setReportData(null);
       return;
@@ -135,7 +170,7 @@ export default function Dashboard() {
     let selected = matches[0];
     if (matches.length > 1) {
       const exactMatch = matches.find(
-        (patient) => getPatientNameKey(patient).toLowerCase() === lowerSearch
+        (patient) => normalizeSearchText(getPatientNameKey(patient)) === normalizeSearchText(searchValue)
       );
       if (exactMatch) {
         selected = exactMatch;

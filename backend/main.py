@@ -1,6 +1,7 @@
 from collections import Counter
 from datetime import date, timedelta
 import json
+import os
 from pathlib import Path
 import tempfile
 from uuid import uuid4
@@ -42,9 +43,18 @@ UPLOAD_CACHE: dict[str, Path] = {}
 class CleanImportRequest(BaseModel):
     upload_id: str
 
+
+def get_allowed_origins() -> list[str]:
+    origins = os.getenv("CORS_ORIGINS")
+    if origins:
+        parsed = [origin.strip() for origin in origins.split(",") if origin.strip()]
+        if parsed:
+            return parsed
+    return ["http://localhost:5173", "http://127.0.0.1:5173"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

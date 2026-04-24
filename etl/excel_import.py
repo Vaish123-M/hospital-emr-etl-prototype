@@ -189,9 +189,7 @@ def clean_and_transform_dataframe(raw_df: pd.DataFrame) -> tuple[pd.DataFrame, d
         & df["phone_number"].notna()
         & (df["phone_number"].astype(str).str.len() >= 5)
     )
-    valid_dob = df["date_of_birth"].notna()
-
-    filtered_df = df[valid_required & valid_dob].copy()
+    filtered_df = df[valid_required].copy()
     invalid_rows_skipped = records_found - int(len(filtered_df))
 
     before_dedupe = int(len(filtered_df))
@@ -380,10 +378,13 @@ def validate_and_get_invalid_rows(raw_df: pd.DataFrame) -> tuple[list[dict], pd.
         if email and ("@" not in email or email.startswith("@") or email.endswith("@")):
             errors.append("Invalid email format")
         
-        # Date of birth validation
+        # Date of birth is optional. Flag only when a value was provided but could not be parsed.
         dob = row.get("date_of_birth")
-        if pd.isna(dob):
-            errors.append("Invalid or missing date of birth")
+        raw_dob = raw_df.iloc[idx].get("date_of_birth") if idx < len(raw_df) else None
+        raw_dob_text = "" if raw_dob is None else str(raw_dob).strip()
+        provided_dob = raw_dob_text.lower() not in {"", "nan", "none", "nat"}
+        if provided_dob and pd.isna(dob):
+            errors.append("Invalid date of birth format")
 
         if errors:
             invalid_rows.append({
