@@ -650,8 +650,8 @@ def create_visit(visit: VisitCreate, request: Request):
 @app.post("/upload-excel")
 async def upload_excel(file: UploadFile = File(...)):
     extension = Path(file.filename or "").suffix.lower()
-    if extension not in {".xlsx", ".xls"}:
-        raise HTTPException(status_code=400, detail="Only .xlsx and .xls files are supported.")
+    if extension not in {".xlsx", ".xls", ".csv"}:
+        raise HTTPException(status_code=400, detail="Only .xlsx, .xls, and .csv files are supported.")
 
     temp_file_path = None
     try:

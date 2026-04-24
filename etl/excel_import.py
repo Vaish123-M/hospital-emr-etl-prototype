@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import math
 from pathlib import Path
 from difflib import SequenceMatcher
 from typing import Any
@@ -48,6 +49,32 @@ def _to_json_records(df: pd.DataFrame, limit: int = 10) -> tuple[list[str], list
     preview_df = df.head(limit).copy()
     preview_df = preview_df.where(pd.notnull(preview_df), None)
     return list(preview_df.columns), preview_df.to_dict(orient="records")
+
+
+def _to_json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _to_json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_to_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_to_json_safe(item) for item in value]
+
+    # Convert pandas/numpy missing markers (NaN, NaT) to JSON null.
+    try:
+        if pd.isna(value):
+            return None
+    except TypeError:
+        pass
+
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    if hasattr(value, "isoformat"):
+        try:
+            return value.isoformat()
+        except TypeError:
+            pass
+
+    return value
 
 
 def _name_similarity(a: str | None, b: str | None) -> float:
@@ -257,7 +284,11 @@ def import_patients(clean_df: pd.DataFrame) -> int:
 
 
 def load_uploaded_excel(file_path: Path) -> tuple[pd.DataFrame, list[str], list[dict[str, Any]], dict]:
-    raw_df = pd.read_excel(file_path)
+    suffix = file_path.suffix.lower()
+    if suffix == ".csv":
+        raw_df = pd.read_csv(file_path)
+    else:
+        raw_df = pd.read_excel(file_path)
     raw_df.columns = [normalize_column_name(column) for column in raw_df.columns]
     preview_columns, preview_rows = _to_json_records(raw_df, limit=10)
     quality_report = profile_dataframe(raw_df)
@@ -272,13 +303,13 @@ def analyze_excel_upload(file_path: Path) -> dict:
     invalid_rows, _ = validate_and_get_invalid_rows(raw_df)
     _log(logs, "Data profiling and validation completed")
 
-    return {
+    return _to_json_safe({
         "preview_columns": preview_columns,
         "preview_rows": preview_rows,
         "invalid_rows": invalid_rows,
         "data_quality_report": quality_report,
         "logs": logs,
-    }
+    })
 
 
 def clean_and_import_excel(file_path: Path) -> dict:
@@ -299,10 +330,10 @@ def clean_and_import_excel(file_path: Path) -> dict:
         + (import_summary["records_after_cleaning"] - inserted)
     )
 
-    return {
+    return _to_json_safe({
         "import_summary": import_summary,
         "logs": logs,
-    }
+    })
 
 
 def validate_and_get_invalid_rows(raw_df: pd.DataFrame) -> tuple[list[dict], pd.DataFrame]:

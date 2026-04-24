@@ -408,13 +408,14 @@ export default function Dashboard() {
     const allowed = [
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "application/vnd.ms-excel",
+      "text/csv",
     ];
 
-    const validExtension = /\.(xlsx|xls)$/i.test(file.name);
+    const validExtension = /\.(xlsx|xls|csv)$/i.test(file.name);
     const validMimeType = allowed.includes(file.type) || file.type === "";
 
     if (!validExtension || !validMimeType) {
-      setError("Please upload a valid Excel file (.xlsx or .xls).");
+      setError("Please upload a valid data file (.xlsx, .xls, or .csv).");
       setUploadFile(null);
       return;
     }
@@ -626,7 +627,7 @@ export default function Dashboard() {
               {t("choose_file")}
               <input
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 onChange={handleFileInputChange}
                 className="hidden"
               />
