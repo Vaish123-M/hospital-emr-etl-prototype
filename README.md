@@ -335,7 +335,7 @@ Default frontend URL: `http://localhost:5173`
 
 Optional frontend environment variable:
 
-- `VITE_API_BASE_URL` (default: `http://localhost:8000`)
+- `VITE_API_BASE_URL` (default: `/api`)
 
 ## 7) Local One-Click Quickstart (Windows)
 

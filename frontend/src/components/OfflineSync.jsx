@@ -10,8 +10,9 @@ import {
   getPendingCount,
   setLastSyncTime,
 } from "../utils/offlineStorage";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const API_BASE_URL = getApiBaseUrl();
 
 export default function OfflineSync() {
   const [isOnlineStatus, setIsOnlineStatus] = useState(navigator.onLine);
@@ -81,10 +82,7 @@ export default function OfflineSync() {
       for (const visit of pendingVisits) {
         if (!visit.synced) {
           try {
-            await axios.post(
-              `${API_BASE_URL}/patients/${visit.patientId}/visits`,
-              visit.data
-            );
+            await axios.post(`${API_BASE_URL}/visits`, visit.data);
             removePendingVisit(visit.id);
           } catch (error) {
             console.error("Failed to sync visit:", error);

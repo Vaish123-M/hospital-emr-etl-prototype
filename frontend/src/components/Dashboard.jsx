@@ -13,8 +13,9 @@ import {
   isOnline,
 } from "../utils/offlineStorage";
 import { generatePatientPDF } from "../utils/pdfExport";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const API_BASE_URL = getApiBaseUrl();
 
 const initialForm = {
   first_name: "",
