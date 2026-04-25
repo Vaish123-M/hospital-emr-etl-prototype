@@ -676,6 +676,9 @@ async def upload_excel(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to process Excel file: {exc}")
 
 
+app.add_api_route("/api/upload-excel", upload_excel, methods=["POST"])
+
+
 @app.post("/clean-import-data")
 def clean_import_data(payload: CleanImportRequest):
     upload_id = payload.upload_id
@@ -707,3 +710,6 @@ def clean_import_data(payload: CleanImportRequest):
         UPLOAD_CACHE.pop(upload_id, None)
         if temp_file_path.exists():
             temp_file_path.unlink(missing_ok=True)
+
+
+app.add_api_route("/api/clean-import-data", clean_import_data, methods=["POST"])
