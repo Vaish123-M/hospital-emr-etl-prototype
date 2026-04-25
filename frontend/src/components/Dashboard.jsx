@@ -32,6 +32,21 @@ function buildApiBaseCandidates(baseUrl) {
     candidates.push("");
   }
 
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const isLocalPageHost = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+    if (isLocalPageHost) {
+      // Covers environments where frontend is served without /api proxy (e.g. vite preview/static hosting).
+      if (host === "127.0.0.1") {
+        candidates.push("http://127.0.0.1:8000");
+        candidates.push("http://localhost:8000");
+      } else {
+        candidates.push("http://localhost:8000");
+        candidates.push("http://127.0.0.1:8000");
+      }
+    }
+  }
+
   return [...new Set(candidates.filter((candidate) => candidate !== undefined && candidate !== null))];
 }
 
@@ -112,6 +127,7 @@ export default function Dashboard() {
 
   async function postWithApiFallback(endpoint, payload, config) {
     let lastError;
+    const retryableStatuses = new Set([404, 405, 502, 503, 504]);
 
     for (let index = 0; index < API_BASE_CANDIDATES.length; index += 1) {
       const base = API_BASE_CANDIDATES[index];
@@ -120,7 +136,7 @@ export default function Dashboard() {
       } catch (error) {
         const status = error?.response?.status;
         const hasMoreCandidates = index < API_BASE_CANDIDATES.length - 1;
-        if (status === 404 && hasMoreCandidates) {
+        if (hasMoreCandidates && retryableStatuses.has(status)) {
           lastError = error;
           continue;
         }
