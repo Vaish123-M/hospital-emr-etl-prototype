@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://hospital-emr-etl-prototype-2.onrender.com/:path*"
+    }
+  ],
+  "env": {
+    "VITE_API_BASE_URL": "/api"
+  }
+}
