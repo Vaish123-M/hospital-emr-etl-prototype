@@ -17,6 +17,31 @@ import { getApiBaseUrl } from "../utils/apiBaseUrl";
 
 const API_BASE_URL = getApiBaseUrl();
 
+function buildApiBaseCandidates(baseUrl) {
+  const base = (baseUrl || "").trim();
+  const candidates = [];
+
+  if (base) {
+    candidates.push(base);
+    if (base.endsWith("/api")) {
+      candidates.push(base.slice(0, -4) || "");
+    }
+  }
+
+  if (base === "/api") {
+    candidates.push("");
+  }
+
+  return [...new Set(candidates.filter((candidate) => candidate !== undefined && candidate !== null))];
+}
+
+const API_BASE_CANDIDATES = buildApiBaseCandidates(API_BASE_URL);
+
+function buildUrl(base, endpoint) {
+  if (!base) return endpoint;
+  return `${base}${endpoint}`;
+}
+
 const initialForm = {
   first_name: "",
   last_name: "",
@@ -83,6 +108,27 @@ export default function Dashboard() {
       return "Could not reach the server. Check that backend is running and API URL is correct.";
     }
     return fallbackMessage;
+  }
+
+  async function postWithApiFallback(endpoint, payload, config) {
+    let lastError;
+
+    for (let index = 0; index < API_BASE_CANDIDATES.length; index += 1) {
+      const base = API_BASE_CANDIDATES[index];
+      try {
+        return await axios.post(buildUrl(base, endpoint), payload, config);
+      } catch (error) {
+        const status = error?.response?.status;
+        const hasMoreCandidates = index < API_BASE_CANDIDATES.length - 1;
+        if (status === 404 && hasMoreCandidates) {
+          lastError = error;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw lastError;
   }
 
   function getDiagnosisFromVisits(visitsList) {
@@ -465,7 +511,7 @@ export default function Dashboard() {
     formData.append("file", uploadFile);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/upload-excel`, formData);
+      const response = await postWithApiFallback("/upload-excel", formData);
       setUploadResult(response.data);
       setImportResult(null);
       setPipelineLogs(response.data.logs || []);
@@ -489,7 +535,7 @@ export default function Dashboard() {
     setImportStatus("Cleaning and importing records...");
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/clean-import-data`, {
+      const response = await postWithApiFallback("/clean-import-data", {
         upload_id: uploadResult.upload_id,
       });
       setImportResult(response.data);

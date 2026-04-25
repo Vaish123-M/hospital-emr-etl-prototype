@@ -2,6 +2,11 @@ function isLocalHost(hostname) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
 }
 
+function normalizeBaseUrl(url) {
+  if (!url) return "/api";
+  return url.replace(/\/+$/, "") || "/api";
+}
+
 export function getApiBaseUrl() {
   const configured = (import.meta.env.VITE_API_BASE_URL || "").trim();
   if (!configured) return "/api";
@@ -18,5 +23,5 @@ export function getApiBaseUrl() {
     }
   }
 
-  return configured;
+  return normalizeBaseUrl(configured);
 }
